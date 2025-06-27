@@ -16,7 +16,7 @@ export const sendOTP = async (email, otp, username) => {
       },
     });
     const mailOptions = {
-      from: `"Zentor" <${process.env.EMAIL}>`,
+      from: `"Bittitan" <${process.env.EMAIL}>`,
       to: email,
       subject: "🔐 Your OTP  ",
       headers: {
