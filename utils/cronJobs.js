@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { runLevelUpgrades } from "./LevelUpgrade.js";
+// import { runLevelUpgrades } from "./LevelUpgrade.js";
 
 let isUpgradingLevels = false;
 
@@ -22,24 +22,24 @@ let isUpgradingLevels = false;
 // });
 
 
-cron.schedule("* * * * *", async () => {
-    if (isUpgradingLevels) {
-        console.log("⏳ Level upgrade job already running. Skipping...");
-        return;
-    }
+// cron.schedule("* * * * *", async () => {
+//     if (isUpgradingLevels) {
+//         console.log("⏳ Level upgrade job already running. Skipping...");
+//         return;
+//     }
 
-    isUpgradingLevels = true;
-    console.log("📈 Running runLevelUpgrades...");
+//     isUpgradingLevels = true;
+//     console.log("📈 Running runLevelUpgrades...");
 
-    try {
-        await runLevelUpgrades();
-        console.log("✅ Level upgrades completed.");
-    } catch (err) {
-        console.error("❌ Error in runLevelUpgrades:", err.message);
-    } finally {
-        isUpgradingLevels = false;
-    }
-});
+//     try {
+//         await runLevelUpgrades();
+//         console.log("✅ Level upgrades completed.");
+//     } catch (err) {
+//         console.error("❌ Error in runLevelUpgrades:", err.message);
+//     } finally {
+//         isUpgradingLevels = false;
+//     }
+// });
 
 
 // // cron.schedule("*/2 * * * * *", async () => {
