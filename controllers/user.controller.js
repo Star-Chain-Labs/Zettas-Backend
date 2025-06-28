@@ -24,8 +24,8 @@ import Banner from "../models/banner.model.js";
 import { sendCredentials } from "../utils/sendCreditential.js";
 import { sendInvestmentConfirmationEmail } from "../utils/sendInvestmentEmail.js";
 import Roi from "../models/roi.model.js";
-import { distributeCommissionsForAiAgent } from "../utils/distributeLevelIncomeUpto4Level.js";
 import StakeModel from "../models/stake.model.js";
+import { LockedAmountModel } from "../models/lockamount.model.js";
 
 
 
@@ -99,7 +99,7 @@ export const userRegisterWithEmail = async (req, res) => {
     }
     const emails = email;
     const randomVal = await generateReferralCode()
-    const referralCode = randomVal
+    const referralCode = randomVal.toUpperCase();
     const username = randomVal
     const userCount = await UserModel.countDocuments();
 
@@ -420,13 +420,12 @@ export const verifyOTP = async (req, res) => {
         sameSite: "none",
       })
       .status(200)
-      .json({ message: "OTP verified successfully", token });
+      .json({ message: "OTP verified successfully", token, data: user });
   } catch (error) {
     console.error("❌ OTP Verify Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
-
 
 export const userLogin = async (req, res) => {
   try {
@@ -510,137 +509,138 @@ export const updateProfile = async (req, res) => {
   }
 }
 
-export const initialInvestment = async (req, res) => {
-  try {
-    const { investmentAmount, txResponse, walletAddress } = req.body;
-    const userId = req.user?._id;
+// export const initialInvestment = async (req, res) => {
+//   try {
+//     const { investmentAmount, txResponse, walletAddress } = req.body;
+//     const userId = req.user?._id;
 
-    if (!userId || investmentAmount == null || !txResponse || !walletAddress) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
+//     if (!userId || investmentAmount == null || !txResponse || !walletAddress) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "All fields are required",
+//       });
+//     }
 
-    const user = await UserModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found",
+//       });
+//     }
 
-    const existingInvestment = await Investment.findOne({ txResponse });
-    if (existingInvestment) {
-      return res.status(409).json({
-        success: false,
-        message: "This transaction has already been processed",
-        investment: existingInvestment,
-      });
-    }
+//     const existingInvestment = await Investment.findOne({ txResponse });
+//     if (existingInvestment) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "This transaction has already been processed",
+//         investment: existingInvestment,
+//       });
+//     }
 
-    const currentDate = new Date();
+//     const currentDate = new Date();
 
-    const investment = await Investment.create({
-      userId,
-      investmentAmount: Number(investmentAmount),
-      walletAddress,
-      txResponse,
-      investmentDate: currentDate,
-    });
+//     const investment = await Investment.create({
+//       userId,
+//       investmentAmount: Number(investmentAmount),
+//       walletAddress,
+//       txResponse,
+//       investmentDate: currentDate,
+//     });
 
-    const level = user.level;
+//     const level = user.level;
 
-    const depositConfig = await DepositModel.findOne();
-    if (!depositConfig) {
-      return res.status(500).json({
-        success: false,
-        message: "Deposit configuration not found",
-      });
-    }
-    const configAmount = depositConfig ? Number(depositConfig.amount) : 0;
-    const amount = Number(investmentAmount);
-    if (level === 0 || level === 1) {
-      const firstWallet = amount > configAmount ? configAmount : amount;
-      const secondWallet = amount > configAmount ? (amount - configAmount) : 0;
+//     const depositConfig = await DepositModel.findOne();
+//     if (!depositConfig) {
+//       return res.status(500).json({
+//         success: false,
+//         message: "Deposit configuration not found",
+//       });
+//     }
+//     const configAmount = depositConfig ? Number(depositConfig.amount) : 0;
+//     const amount = Number(investmentAmount);
+//     if (level === 0 || level === 1) {
+//       const firstWallet = amount > configAmount ? configAmount : amount;
+//       const secondWallet = amount > configAmount ? (amount - configAmount) : 0;
 
-      user.mainWallet += firstWallet;
-      user.additionalWallet += secondWallet;
-    } else {
-      user.mainWallet += amount;
-      user.currentEarnings += amount;
-    }
-
-
-
-    user.principleAmount += amount;
-    user.totalInvestment += amount;
-    user.investments.push(investment._id);
-    user.isVerified = true;
-    user.status = true; git
-    user.activeDate = currentDate;
-    user.aiCredits += 4;
-    user.walletAddress = walletAddress;
-
-    await user.save();
-    await sendInvestmentConfirmationEmail(
-      user.email,
-      user.name,
-      amount,
-      investment.investmentDate
-    );
+//       user.mainWallet += firstWallet;
+//       user.additionalWallet += secondWallet;
+//     } else {
+//       user.mainWallet += amount;
+//       user.currentEarnings += amount;
+//     }
 
 
-    if (user.sponsorId) {
-      const parentUser = await UserModel.findById(user.sponsorId);
-      const percentData = await DirectreferalPercentage.findOne();
 
-      if (!percentData) {
-        return res.status(500).json({
-          success: false,
-          message: "Referral percentage configuration not found",
-        });
-      }
+//     user.principleAmount += amount;
+//     user.totalInvestment += amount;
+//     user.investments.push(investment._id);
+//     user.isVerified = true;
+//     user.status = true; git
+//     user.activeDate = currentDate;
+//     user.aiCredits += 4;
+//     user.walletAddress = walletAddress;
 
-      const percent = Number(percentData.directReferralPercentage);
+//     await user.save();
+//     await sendInvestmentConfirmationEmail(
+//       user.email,
+//       user.name,
+//       amount,
+//       investment.investmentDate
+//     );
 
-      if (parentUser && !isNaN(percent)) {
-        const referralBonus = (amount * percent) / 100;
 
-        parentUser.directReferalAmount += referralBonus;
-        parentUser.totalEarnings += referralBonus;
-        parentUser.currentEarnings += referralBonus;
-        parentUser.mainWallet += referralBonus;
-        parentUser.aiCredits += 1;
+//     if (user.sponsorId) {
+//       const parentUser = await UserModel.findById(user.sponsorId);
+//       const percentData = await DirectreferalPercentage.findOne();
 
-        await parentUser.save();
+//       if (!percentData) {
+//         return res.status(500).json({
+//           success: false,
+//           message: "Referral percentage configuration not found",
+//         });
+//       }
 
-        await ReferalBonus.create({
-          userId: parentUser._id,
-          fromUser: user._id,
-          amount: referralBonus,
-          investmentId: investment._id,
-          date: currentDate,
-        });
-      } else {
-        // console.warn("Parent user not found or invalid referral percent.");
-      }
-    }
+//       const percent = Number(percentData.directReferralPercentage);
 
-    return res.status(201).json({
-      success: true,
-      message: "Investment successful",
-      investment,
-    });
+//       if (parentUser && !isNaN(percent)) {
+//         const referralBonus = (amount * percent) / 100;
 
-  } catch (error) {
-    // console.error("Error in initialInvestment:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Server error",
-    });
-  }
-};
+//         parentUser.directReferalAmount += referralBonus;
+//         parentUser.totalEarnings += referralBonus;
+//         parentUser.currentEarnings += referralBonus;
+//         parentUser.mainWallet += referralBonus;
+//         parentUser.aiCredits += 1;
+
+//         await parentUser.save();
+
+//         await ReferalBonus.create({
+//           userId: parentUser._id,
+//           fromUser: user._id,
+//           amount: referralBonus,
+//           investmentId: investment._id,
+//           date: currentDate,
+//         });
+//       } else {
+//         // console.warn("Parent user not found or invalid referral percent.");
+//       }
+//     }
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Investment successful",
+//       investment,
+//     });
+
+//   } catch (error) {
+//     // console.error("Error in initialInvestment:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || "Server error",
+//     });
+//   }
+// };
+
 
 export const investment = async (req, res) => {
   try {
@@ -654,12 +654,12 @@ export const investment = async (req, res) => {
       });
     }
 
-    if (investmentAmount >= 30) {
-      return res.status(400).json({
-        success: false,
-        message: "Minimum investment is $30",
-      });
-    }
+    // if (investmentAmount <= 100) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Minimum investment is $100",
+    //   });
+    // }
 
     const user = await UserModel.findById(userId);
     if (!user) {
@@ -683,12 +683,19 @@ export const investment = async (req, res) => {
       investmentAmount,
       txResponse,
       investmentDate: new Date(),
+      walletAddress,
     });
 
+    await LockedAmountModel.create({
+      userId: user._id,
+      amount: investmentAmount,
+      lockedAt: new Date(),
+      isClaimed: false,
+    })
     user.investments.push(investment._id);
-
+    user.mainWallet += Number(investmentAmount);
     user.totalInvestment += Number(investmentAmount);
-    user.currentEarnings += Number(investmentAmount)
+    user.lockAmount += Number(investmentAmount)
     user.isVerified = true;
     user.principleAmount += Number(investmentAmount)
     user.status = true;
@@ -1400,7 +1407,7 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    if (Number(user.level) <= 0) {
+    if (Number(user.level) < 1) {
       return res.status(400).json({
         message: "You are not eligible to swap amount",
         success: false,
@@ -1820,37 +1827,38 @@ export const verifyOtpForPassword = async (req, res) => {
 //   }
 // };
 
+
 export const getMemeberAndTeamData = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { date } = req.body;
+    const startDate = req?.body?.startDate;
+    const endDate = req?.body?.endDate;
 
     if (!userId) {
       return res.status(400).json({
         message: "User not Authorized",
-        success: false
+        success: false,
       });
     }
-    console.log(userId)
 
     const allUsers = await UserModel.find({ sponsorId: userId });
-    console.log(allUsers)
     if (!allUsers || !allUsers.length) {
       return res.status(200).json({
         message: "No Team Found for this user",
-        success: false
+        success: false,
       });
     }
 
-    const { teamA, teamB, teamC, teamD, totalTeamBCD } = await calculateTeams(userId, date);
-    const totalInvestment = (team) => {
-      return team.reduce((acc, member) => acc + (member.totalInvestment || 0), 0);
-    };
-
-    const totalInvestmentA = totalInvestment(teamA);
-    const totalInvestmentB = totalInvestment(teamB);
-    const totalInvestmentC = totalInvestment(teamC);
-    const totalInvestmentD = totalInvestment(teamD);
+    const {
+      teamA,
+      teamB,
+      teamC,
+      totalTeamBC,
+      teamAInvestment,
+      teamBInvestment,
+      teamCInvestment,
+      totalInvestment,
+    } = await calculateTeams(userId, startDate, endDate);
 
     return res.status(200).json({
       message: "Team Data fetched successfully",
@@ -1859,24 +1867,23 @@ export const getMemeberAndTeamData = async (req, res) => {
         teamA: teamA.length,
         teamB: teamB.length,
         teamC: teamC.length,
-        teamD: teamD.length,
-        totalTeamBCD,
-        totalTeam: teamA.length + teamB.length + teamC.length + teamD.length,
+        totalTeamBC,
+        totalTeam: teamA.length + teamB.length + teamC.length,
         teamAMembers: teamA,
         teamBMembers: teamB,
         teamCMembers: teamC,
-        totalInvestmentA,
-        totalInvestmentB,
-        totalInvestmentC,
-        totalInvestmentD,
-        totalInvestmentAll: totalInvestmentA + totalInvestmentB + totalInvestmentC + totalInvestmentD,
-      }
-    });
 
+        // ✅ Add investment details
+        teamAInvestment,
+        teamBInvestment,
+        teamCInvestment,
+        totalInvestment,
+      },
+    });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Getting Error in getMember Data",
-      success: false
+      success: false,
     });
   }
 };
@@ -1926,7 +1933,6 @@ export const sendOtpForMoneyTransfer = async (req, res) => {
 export const transferAmountToAnotherUser = async (req, res) => {
   try {
     const transferUserId = req.user._id;
-    console.log(transferUserId, "transfer")
 
     if (!transferUserId) {
       return res.status(401).json({
@@ -1986,6 +1992,7 @@ export const transferAmountToAnotherUser = async (req, res) => {
 
     sender.mainWallet -= amount;
     receiver.mainWallet += amount;
+    receiver.totalInvestment += amount;
 
     sender.otp = null;
     sender.otpExpire = null;
@@ -2003,6 +2010,7 @@ export const transferAmountToAnotherUser = async (req, res) => {
       userId: receiver._id,
       investmentAmount: amount,
       investmentDate: Date.now(),
+      txResponse: await generateRandomTxResponse()
     })
 
     return res.status(200).json({

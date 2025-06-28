@@ -11,7 +11,7 @@ export const sendWithdrawalConfirmationEmail = async (email, name, amount, netAm
   });
 
   const mailOptions = {
-    from: `"Zentor" <${process.env.EMAIL}>`,
+    from: `"Zetta" <${process.env.EMAIL}>`,
     to: email,
     subject: "✅ Withdrawal Request Sent Successfully",
     html: `
@@ -30,7 +30,7 @@ export const sendWithdrawalConfirmationEmail = async (email, name, amount, netAm
         <p>💡 <i>If you did not initiate this request, please contact our support team immediately.</i></p>
 
         <p>Thank you for trusting us.</p>
-        <p style="margin-top: 20px;">Best regards,<br/>Team Zentor</p>
+        <p style="margin-top: 20px;">Best regards,<br/>Team Zetta</p>
       </div>
     `,
   };
@@ -48,7 +48,7 @@ export const sendWithdrawalApproveEmail = async (email, name, amount, netAmount,
   });
 
   const mailOptions = {
-    from: `"Zentor" <${process.env.EMAIL}>`,
+    from: `"Zetta" <${process.env.EMAIL}>`,
     to: email,
     subject: "✅ Withdrawal Approved Successfully",
     html: `
@@ -67,7 +67,7 @@ export const sendWithdrawalApproveEmail = async (email, name, amount, netAmount,
         <p>💡 <i>If you did not initiate this request, please contact our support team immediately.</i></p>
 
         <p>Thank you for trusting us.</p>
-        <p style="margin-top: 20px;">Best regards,<br/>Team Zentor</p>
+        <p style="margin-top: 20px;">Best regards,<br/>Team Zetta</p>
       </div>
     `,
   };

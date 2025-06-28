@@ -10,13 +10,9 @@ const aroiSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  // compoundInvestmentAmount: {
-  //   type: Number,
-  //   default: 0,
-  // },
   roiAmount: {
     type: Number,
-    required: true,
+    default: 0,
   },
   dayCount: {
     type: Number,
@@ -34,7 +30,7 @@ const aroiSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-});
+}, { timestamps: true });
 
 const Roi = mongoose.model("Roi", aroiSchema);
 export default Roi;

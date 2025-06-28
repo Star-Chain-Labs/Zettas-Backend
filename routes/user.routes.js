@@ -17,7 +17,7 @@ import {
   getProfile,
   getTeamCount,
   getUsersCountByLevel,
-  initialInvestment,
+  // initialInvestment,
   LevelIncomeHistory,
   ReferralIncomeHistory,
   reset2FAHandler,
@@ -39,12 +39,13 @@ import {
   verifyOTP,
   verifyOtpForPassword,
   withdrawalHistory,
+  investment,
 } from "../controllers/user.controller.js";
 import IsAuthenticated from "../middlewares/IsAuthenticated.js";
-import { triggerAITradeRoi } from "../utils/triggerAITradeRoi.js";
 import { processWithdrawal } from "../controllers/withdrwal.controller.js";
 import upload from "../utils/upload.js";
 import { bonusTrade } from "../utils/bonusTrade.js";
+import { triggerMonthlyTargetRoi } from "../utils/triggerMonthlyTargetRoi.js";
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ router.route("/get-level-users").get(IsAuthenticated, getUsersCountByLevel);
 // router.route("/invest").post(IsAuthenticated, initialInvestment);
 router.route("/get-Profile").get(IsAuthenticated, getProfile);
 router.route("/verify-otp").post(verifyOTP);
-router.route("/place-trade").get(IsAuthenticated, triggerAITradeRoi);
+router.route("/place-trade").get(IsAuthenticated, triggerMonthlyTargetRoi);
 router.route("/get-all-announcement").post(getAllAnoucement);
 router
   .route("/sendOtp-forWalletAddress")
@@ -64,7 +65,8 @@ router.route("/update-profile").post(IsAuthenticated, updateProfile);
 router
   .route("/change-walletAddress")
   .post(IsAuthenticated, sendOTPForChangeAddress);
-router.route("/invest").post(IsAuthenticated, initialInvestment);
+// router.route("/invest").post(IsAuthenticated, initialInvestment);
+router.route("/invest").post(IsAuthenticated, investment);
 router.route("/swap-amount").post(IsAuthenticated, swapAmount);
 router.route("/withdraw-history").get(IsAuthenticated, withdrawalHistory);
 router.route("/deposit-history").get(IsAuthenticated, depositHistory);

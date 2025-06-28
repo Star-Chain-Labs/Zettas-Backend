@@ -17,7 +17,7 @@ export const sendInvestmentConfirmationEmail = async (email, name, amount, date)
     });
 
     const mailOptions = {
-        from: `"Zentor" <${process.env.MAIL_USER}>`,
+        from: `"Zetta" <${process.env.MAIL_USER}>`,
         to: email,
         subject: "✅ Investment Confirmation - Thank You!",
         html: `
@@ -36,11 +36,11 @@ export const sendInvestmentConfirmationEmail = async (email, name, amount, date)
         </div>
 
         <p style="font-size: 15px; color: #444;">
-          Thank you for trusting <strong>Zentor</strong>. We're committed to helping you grow your investment. You can view your portfolio and progress anytime from your dashboard.
+          Thank you for trusting <strong>Zetta</strong>. We're committed to helping you grow your investment. You can view your portfolio and progress anytime from your dashboard.
         </p>
 
         <div style="margin-top: 30px;">
-          <a href="https://zentor.us/dashboard" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">📊 Go to Dashboard</a>
+          <a href="https://Zetta.us/dashboard" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">📊 Go to Dashboard</a>
         </div>
 
         <p style="margin-top: 40px; font-size: 14px; color: #777;">If you have any questions, feel free to contact us at <a href="mailto:support@yourcompany.com">support@yourcompany.com</a>.</p>

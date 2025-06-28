@@ -1,66 +1,23 @@
 import cron from "node-cron";
-// import { runLevelUpgrades } from "./LevelUpgrade.js";
+import { processUnlockedAmounts } from "./unlockAmount.js";
 
-let isUpgradingLevels = false;
+let isUnlockingAmounts = false;
 
-// cron.schedule("*/10 * * * * *", async () => {
-//   if (isDistributingROI) {
-//     console.log("⏳ ROI job already running. Skipping this cycle.");
-//     return;
-//   }
+cron.schedule("0 0 * * *", async () => {
+    if (isUnlockingAmounts) {
+        console.log("processUnlockedAmounts is already running. Skipping this run.");
+        return;
+    }
 
-//   isDistributingROI = true;
-//   console.log("🚀 Running distributeRoi...");
+    isUnlockingAmounts = true;
 
-//   try {
-//     await distributeRoi();
-//   } catch (err) {
-//     console.error("❌ Error in distributeRoi:", err.message);
-//   } finally {
-//     isDistributingROI = false;
-//   }
-// });
-
-
-// cron.schedule("* * * * *", async () => {
-//     if (isUpgradingLevels) {
-//         console.log("⏳ Level upgrade job already running. Skipping...");
-//         return;
-//     }
-
-//     isUpgradingLevels = true;
-//     console.log("📈 Running runLevelUpgrades...");
-
-//     try {
-//         await runLevelUpgrades();
-//         console.log("✅ Level upgrades completed.");
-//     } catch (err) {
-//         console.error("❌ Error in runLevelUpgrades:", err.message);
-//     } finally {
-//         isUpgradingLevels = false;
-//     }
-// });
-
-
-// // cron.schedule("*/2 * * * * *", async () => {
-// //     if (isUpgradingLevels) {
-// //         console.log("⏳ Level upgrade job already running. Skipping...");
-// //         return;
-// //     }
-// //     isUpgradingLevels = true;
-// //     console.log("📈 Running runLevelUpgrades...");
-
-// //     try {
-// //         await AiAgentRoi();
-// //     } catch (err) {
-// //         console.error("❌ Error in runLevelUpgrades:", err.message);
-// //     } finally {
-// //         isUpgradingLevels = false;
-// //     }
-// // }, {
-// //     scheduled: true,
-// //     timezone: "Asia/Kolkata"
-// // });
-
-
-
+    try {
+        console.log(`[${new Date().toISOString()}] Starting processUnlockedAmounts...`);
+        await processUnlockedAmounts();
+        console.log("processUnlockedAmounts completed successfully.");
+    } catch (error) {
+        console.error("Error during processUnlockedAmounts:", error);
+    } finally {
+        isUnlockingAmounts = false;
+    }
+});

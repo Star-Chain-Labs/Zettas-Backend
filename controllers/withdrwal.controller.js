@@ -230,6 +230,7 @@ const usdtContract = new Contract(usdtAddress, usdtABI, wallet);
 
 
 
+
 export const processWithdrawal = async (req, res) => {
     const userId = req.user._id;
 
@@ -240,72 +241,51 @@ export const processWithdrawal = async (req, res) => {
         }
 
         if (user.isWithdrawalblock) {
-            return res.status(403).json({ success: false, message: "User withdrawal is blocked" });
+            return res.status(403).json({ success: false, message: "Withdrawals are blocked for your account." });
         }
 
         const { userWalletAddress, amount, otp, loginPassword } = req.body;
 
+        // Validate input fields
         if (!userWalletAddress || !amount || !otp || !loginPassword) {
             return res.status(400).json({ success: false, message: "All fields are required." });
         }
 
         if (!isAddress(userWalletAddress)) {
-            return res.status(400).json({ success: false, message: "Invalid wallet address" });
+            return res.status(400).json({ success: false, message: "Invalid wallet address." });
         }
 
-        const passwordMatch = await bcrypt.compare(loginPassword, user.password);
-        if (!passwordMatch) {
-            return res.status(401).json({ success: false, message: "Invalid login password" });
+        const isPasswordCorrect = await bcrypt.compare(loginPassword, user.password);
+        if (!isPasswordCorrect) {
+            return res.status(401).json({ success: false, message: "Incorrect login password." });
         }
 
+        // Validate OTP
         if (user.otp !== otp || user.otpExpire < Date.now()) {
-            return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+            return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
         }
 
         const numericAmount = Number(amount);
         if (isNaN(numericAmount) || numericAmount < 10) {
-            return res.status(400).json({ success: false, message: "Minimum withdrawal is $10" });
+            return res.status(400).json({ success: false, message: "Minimum withdrawal is $10." });
         }
 
         if (user.mainWallet < numericAmount) {
-            return res.status(400).json({ success: false, message: "Insufficient main wallet balance" });
+            return res.status(400).json({ success: false, message: "Insufficient wallet balance." });
         }
 
-        // Rule check (based on level)
-        const withdrawalRule = await WithdrawalLimit.findOne({ level: user.level });
-        if (!withdrawalRule) {
-            return res.status(400).json({ success: false, message: "No withdrawal rules configured" });
-        }
-
-        if (numericAmount > withdrawalRule.singleWithdrawalLimit) {
-            return res.status(400).json({
-                success: false,
-                message: `Max withdrawal allowed is $${withdrawalRule.singleWithdrawalLimit}`,
-            });
-        }
-
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-        const monthlyWithdrawals = await Withdrawal.find({
-            userId,
-            createdAt: { $gte: startOfMonth, $lte: endOfMonth },
-        });
-
-        if (monthlyWithdrawals.length >= withdrawalRule.perMonthWithdrawalCount) {
-            return res.status(400).json({ success: false, message: "Monthly limit reached" });
-        }
-
+        // Fee deduction (10%)
         const fee = (numericAmount * 10) / 100;
         const netAmount = numericAmount - fee;
 
+        // Update user
         user.mainWallet -= numericAmount;
         user.totalPayouts += numericAmount;
         user.otp = null;
         user.otpExpire = null;
         await user.save();
 
+        // Save withdrawal
         await Withdrawal.create({
             userId,
             userWalletAddress,
@@ -313,9 +293,10 @@ export const processWithdrawal = async (req, res) => {
             feeAmount: fee,
             netAmountSent: netAmount,
             status: "pending",
-            transactionHash: "", // not applicable in manual mode
+            transactionHash: "",
         });
 
+        // Email notification
         await sendWithdrawalConfirmationEmail(
             user.email,
             user.name,
@@ -327,14 +308,18 @@ export const processWithdrawal = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: `Withdrawal request submitted successfully. Net amount: $${netAmount}. It will be processed soon.`,
+            message: `Withdrawal request submitted successfully. Net amount: $${netAmount.toFixed(2)}. Processing soon.`,
         });
 
     } catch (error) {
         console.error("Withdrawal Error:", error);
-        return res.status(500).json({ success: false, message: "Server error during withdrawal" });
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error during withdrawal.",
+        });
     }
 };
+
 export const approveWithdrawal = async (req, res) => {
     const { withdrawalId } = req.body;
     if (!withdrawalId) {

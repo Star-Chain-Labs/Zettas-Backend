@@ -176,7 +176,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-
+    lockAmount: {
+      type: Number,
+      default: 0
+    }
+    ,
     isLoginBlocked: {
       type: Boolean,
       default: false,

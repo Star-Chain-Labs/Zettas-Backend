@@ -16,7 +16,7 @@ export const sendOTP = async (email, otp, username) => {
       },
     });
     const mailOptions = {
-      from: `"Bittitan" <${process.env.EMAIL}>`,
+      from: `"Zetta" <${process.env.EMAIL}>`,
       to: email,
       subject: "🔐 Your OTP  ",
       headers: {
@@ -47,7 +47,7 @@ export const sendOTP = async (email, otp, username) => {
               <a href="mailto:support@worldtrade.com" style="color: #007bff; text-decoration: none;">support@worldtrade.com</a>
           </p>
 
-          <p style="font-weight: bold; color: #007bff; margin-top: 15px;">- The Zentor Trade Team</p>
+          <p style="font-weight: bold; color: #007bff; margin-top: 15px;">- The Zetta Trade Team</p>
         </div>
         `,
     };

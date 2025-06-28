@@ -1,80 +1,35 @@
 import moment from "moment";
 import UserModel from "../models/user.model.js";
 
-// export const calculateTeams = async (userId, date = null) => {
-//   try {
-//     const user = await UserModel.findById(userId);
-//     if (!user) throw new Error("User not found");
-
-//     let dateFilter = {};
-//     if (date) {
-//       const startOfDay = moment(date).startOf('day').toDate();
-//       const endOfDay = moment(date).endOf('day').toDate();
-//       dateFilter.createdAt = { $gte: startOfDay, $lte: endOfDay };
-//     }
-
-//     const teamA = await UserModel.find({
-//       _id: { $in: user.referedUsers },
-//       ...dateFilter
-//     });
-
-//     let teamB = [];
-//     for (let a of teamA) {
-//       const referredByA = await UserModel.find({
-//         _id: { $in: a.referedUsers },
-//         ...dateFilter
-//       });
-//       teamB.push(...referredByA);
-//     }
-
-//     let teamC = [];
-//     for (let b of teamB) {
-//       const referredByB = await UserModel.find({
-//         _id: { $in: b.referedUsers },
-//         ...dateFilter
-//       });
-//       teamC.push(...referredByB);
-//     }
-
-//     return {
-//       teamA,
-//       teamB,
-//       teamC,
-//       totalTeamBC: teamB.length + teamC.length,
-//     };
-//   } catch (error) {
-//     // console.error("❌ Error in calculateTeams:", error.message);
-//     throw error;
-//   }
-// };
-
-
-export const calculateTeams = async (userId, date = null) => {
+export const calculateTeams = async (userId, startDate = null, endDate = null) => {
   try {
     const user = await UserModel.findById(userId);
     if (!user) throw new Error("User not found");
 
     let dateFilter = {};
-    if (date) {
-      const startOfDay = moment(date).startOf("day").toDate();
-      const endOfDay = moment(date).endOf("day").toDate();
-      dateFilter.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    if (startDate && endDate) {
+      const start = moment(startDate).startOf("day").toDate();
+      const end = moment(endDate).endOf("day").toDate();
+      dateFilter.createdAt = { $gte: start, $lte: end };
     }
 
+    // ✅ Fetch Team A
     const teamA = await UserModel.find({
       _id: { $in: user.referedUsers },
       ...dateFilter,
-    });
+    }).populate("referedUsers");
 
+    // ✅ Fetch Team B
     let teamB = [];
     for (let a of teamA) {
       const referredByA = await UserModel.find({
         _id: { $in: a.referedUsers },
         ...dateFilter,
-      });
+      }).populate("referedUsers");
       teamB.push(...referredByA);
     }
 
+    // ✅ Fetch Team C
     let teamC = [];
     for (let b of teamB) {
       const referredByB = await UserModel.find({
@@ -84,21 +39,24 @@ export const calculateTeams = async (userId, date = null) => {
       teamC.push(...referredByB);
     }
 
-    let teamD = [];
-    for (let c of teamC) {
-      const referredByC = await UserModel.find({
-        _id: { $in: c.referedUsers },
-        ...dateFilter,
-      });
-      teamD.push(...referredByC);
-    }
+    // ✅ Calculate investments
+    const sumInvestments = (team) =>
+      team.reduce((sum, member) => sum + (Number(member.totalInvestment) || 0), 0);
+
+    const teamAInvestment = sumInvestments(teamA);
+    const teamBInvestment = sumInvestments(teamB);
+    const teamCInvestment = sumInvestments(teamC);
+    const totalInvestment = teamAInvestment + teamBInvestment + teamCInvestment;
 
     return {
       teamA,
       teamB,
       teamC,
-      teamD,
-      totalTeamBCD: teamB.length + teamC.length + teamD.length,
+      totalTeamBC: teamB.length + teamC.length,
+      teamAInvestment,
+      teamBInvestment,
+      teamCInvestment,
+      totalInvestment,
     };
   } catch (error) {
     throw error;

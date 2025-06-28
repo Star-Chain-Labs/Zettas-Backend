@@ -13,15 +13,15 @@ export const sendCredentials = async (email, name, password) => {
         const mailOptions = {
             from: process.env.EMAIL,
             to: email,
-            subject: "Welcome to Zentor Platform ",
+            subject: "Welcome to Zetta Platform ",
             html: `
         <h3>Dear ${name},</h3>
-        <p>You have successfully registered on the Zentor Platform.</p>
+        <p>You have successfully registered on the Zetta Platform.</p>
         <p><b>Email:</b> ${email}</p>
         <p><b>Password:</b> ${password}</p>
         <p><i>Please keep this information safe and do not share it with anyone.</i></p>
         <br/>
-        <p>Thanks & Regards,<br/>Team Zentor</p>
+        <p>Thanks & Regards,<br/>Team Zetta</p>
       `,
         };
 

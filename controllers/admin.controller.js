@@ -147,7 +147,7 @@ export const getProfile = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const userId = req.admin._id;
-    const admin = await Admin.findById(userId).populate("sponsorId", "name username");
+    const admin = await Admin.findById(userId);
     if (!admin) {
       return res.status(404).json({
         message: "Unauthorized",
