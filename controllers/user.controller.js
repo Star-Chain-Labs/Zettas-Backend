@@ -445,13 +445,13 @@ export const userLogin = async (req, res) => {
         message: "User not Found",
       });
     }
-    if (user.isLoginBlocked) {
-      return res.status(401).json({
-        success: false,
-        message: "You haven’t logged in for the past 4 days, so your account has been temporarily blocked. Please raise a support ticket to regain access."
+    // if (user.isLoginBlocked) {
+    //   return res.status(401).json({
+    //     success: false,
+    //     message: "You haven’t logged in for the past 4 days, so your account has been temporarily blocked. Please raise a support ticket to regain access."
 
-      });
-    }
+    //   });
+    // }
 
     if (!user.isVerified) {
       return res.status(404).json({
