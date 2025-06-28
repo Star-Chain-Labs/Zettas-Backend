@@ -2050,7 +2050,7 @@ export const sendInvitation = async (req, res) => {
           <div style="max-width: 600px; margin: auto; background-color: white; padding: 30px; border-radius: 8px;">
             <h2 style="color: #333;">Hey ${name},</h2>
             <p style="font-size: 16px;">You've been invited to join our platform! Click the button below to get started:</p>
-            <a href="https://www.youtube.com" style="display: inline-block; padding: 12px 24px; margin-top: 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
+            <a href="https:zettas.tech/login" style="display: inline-block; padding: 12px 24px; margin-top: 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
             <p style="margin-top: 20px; font-size: 14px; color: #777;">If you did not expect this email, you can safely ignore it.</p>
           </div>
         </div>
