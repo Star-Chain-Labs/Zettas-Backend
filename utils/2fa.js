@@ -22,7 +22,7 @@ export const generate2FA = async (email, force = false) => {
     }
 
     const secret = speakeasy.generateSecret({
-        name: `1Trade (${email})`,
+        name: `Zetta (${email})`,
     });
 
     const qrCode = await qrcode.toDataURL(secret.otpauth_url);

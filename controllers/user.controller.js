@@ -2042,7 +2042,7 @@ export const sendInvitation = async (req, res) => {
     });
     7
     const mailOptions = {
-      from: `"1Trade" <${process.env.EMAIL}>`,
+      from: `"Zetta" <${process.env.EMAIL}>`,
       to: email,
       subject: "🎉 You're Invited to Join Our Platform!",
       html: `
