@@ -1303,7 +1303,7 @@ export const swapAmount = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `₹${amount} swapped successfully from Main Wallet to Additional Wallet`,
+      message: `You have successfully swapped ${amount}  and received equivalent AI Credit balance.`,
       mainWallet: user.mainWallet,
       additionalWallet: user.additionalWallet,
     });
