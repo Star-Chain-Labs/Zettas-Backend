@@ -341,6 +341,7 @@ export const approveWithdrawal = async (req, res) => {
         }
 
         withdrawal.status = "approved";
+        withdrawal.approvedDate = new Date();
         await withdrawal.save();
         await sendWithdrawalApproveEmail(user.email,
             user.name,
@@ -384,6 +385,7 @@ export const rejectWithdrawal = async (req, res) => {
         withdrawal.status = "rejected";
         withdrawal.reason = reason || "Rejected by admin";
         withdrawal.transactionHash = "";
+        withdrawal.approvedDate = new Date();
         await withdrawal.save();
 
         return res.status(200).json({ success: true, message: "Withdrawal rejected and balance reverted" });

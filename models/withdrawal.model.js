@@ -33,6 +33,10 @@ const withdrawalSchema = new mongoose.Schema(
       default: "pending",
       required: true,
     },
+    approvedDate: {
+      type: Date,
+      default: null,
+    },
 
     error: {
       type: String,
