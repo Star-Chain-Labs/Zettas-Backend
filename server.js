@@ -19,13 +19,14 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: true,
+    origin: ["https://zetta.tech", "http://localhost:6075"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     optionsSuccessStatus: 200,
   })
 );
+
 
 app.use("/api/users", UserRouter);
 app.use("/api/admin", AdminRouter);
