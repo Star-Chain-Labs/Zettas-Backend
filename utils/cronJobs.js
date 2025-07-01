@@ -8,9 +8,7 @@ cron.schedule("0 0 * * *", async () => {
         console.log("processUnlockedAmounts is already running. Skipping this run.");
         return;
     }
-
     isUnlockingAmounts = true;
-
     try {
         console.log(`[${new Date().toISOString()}] Starting processUnlockedAmounts...`);
         await processUnlockedAmounts();

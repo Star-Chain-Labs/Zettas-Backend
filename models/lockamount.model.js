@@ -22,6 +22,10 @@ const LockedAmountSchema = new mongoose.Schema({
         type: String,
         enum: ["locked", "released"],
         default: "locked"
+    },
+    isUnlocked: {
+        type: Boolean,
+        default: false
     }
 
 });

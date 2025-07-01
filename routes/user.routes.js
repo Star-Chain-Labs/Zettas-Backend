@@ -40,6 +40,8 @@ import {
   verifyOtpForPassword,
   withdrawalHistory,
   investment,
+  getAllLockedHistory,
+  redeemLockAmount,
 } from "../controllers/user.controller.js";
 import IsAuthenticated from "../middlewares/IsAuthenticated.js";
 import { processWithdrawal } from "../controllers/withdrwal.controller.js";
@@ -100,7 +102,7 @@ router.post('/bonus-trade', IsAuthenticated, bonusTrade);
 router.route("/get-all-banners").get(IsAuthenticated, getAllBanners)
 router.get('/send-withdrawal-otp', IsAuthenticated, sendOTPForBep20Address);
 router.route("/trade-history").get(IsAuthenticated, getAllTradeHistory);
-
-
+router.route("/redeem-locked-amount").post(IsAuthenticated, redeemLockAmount);
+router.route("/get-locked-history").get(IsAuthenticated, getAllLockedHistory);
 
 export default router;

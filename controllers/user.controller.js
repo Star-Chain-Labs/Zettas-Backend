@@ -509,138 +509,6 @@ export const updateProfile = async (req, res) => {
   }
 }
 
-// export const initialInvestment = async (req, res) => {
-//   try {
-//     const { investmentAmount, txResponse, walletAddress } = req.body;
-//     const userId = req.user?._id;
-
-//     if (!userId || investmentAmount == null || !txResponse || !walletAddress) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "All fields are required",
-//       });
-//     }
-
-//     const user = await UserModel.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found",
-//       });
-//     }
-
-//     const existingInvestment = await Investment.findOne({ txResponse });
-//     if (existingInvestment) {
-//       return res.status(409).json({
-//         success: false,
-//         message: "This transaction has already been processed",
-//         investment: existingInvestment,
-//       });
-//     }
-
-//     const currentDate = new Date();
-
-//     const investment = await Investment.create({
-//       userId,
-//       investmentAmount: Number(investmentAmount),
-//       walletAddress,
-//       txResponse,
-//       investmentDate: currentDate,
-//     });
-
-//     const level = user.level;
-
-//     const depositConfig = await DepositModel.findOne();
-//     if (!depositConfig) {
-//       return res.status(500).json({
-//         success: false,
-//         message: "Deposit configuration not found",
-//       });
-//     }
-//     const configAmount = depositConfig ? Number(depositConfig.amount) : 0;
-//     const amount = Number(investmentAmount);
-//     if (level === 0 || level === 1) {
-//       const firstWallet = amount > configAmount ? configAmount : amount;
-//       const secondWallet = amount > configAmount ? (amount - configAmount) : 0;
-
-//       user.mainWallet += firstWallet;
-//       user.additionalWallet += secondWallet;
-//     } else {
-//       user.mainWallet += amount;
-//       user.currentEarnings += amount;
-//     }
-
-
-
-//     user.principleAmount += amount;
-//     user.totalInvestment += amount;
-//     user.investments.push(investment._id);
-//     user.isVerified = true;
-//     user.status = true; git
-//     user.activeDate = currentDate;
-//     user.aiCredits += 4;
-//     user.walletAddress = walletAddress;
-
-//     await user.save();
-//     await sendInvestmentConfirmationEmail(
-//       user.email,
-//       user.name,
-//       amount,
-//       investment.investmentDate
-//     );
-
-
-//     if (user.sponsorId) {
-//       const parentUser = await UserModel.findById(user.sponsorId);
-//       const percentData = await DirectreferalPercentage.findOne();
-
-//       if (!percentData) {
-//         return res.status(500).json({
-//           success: false,
-//           message: "Referral percentage configuration not found",
-//         });
-//       }
-
-//       const percent = Number(percentData.directReferralPercentage);
-
-//       if (parentUser && !isNaN(percent)) {
-//         const referralBonus = (amount * percent) / 100;
-
-//         parentUser.directReferalAmount += referralBonus;
-//         parentUser.totalEarnings += referralBonus;
-//         parentUser.currentEarnings += referralBonus;
-//         parentUser.mainWallet += referralBonus;
-//         parentUser.aiCredits += 1;
-
-//         await parentUser.save();
-
-//         await ReferalBonus.create({
-//           userId: parentUser._id,
-//           fromUser: user._id,
-//           amount: referralBonus,
-//           investmentId: investment._id,
-//           date: currentDate,
-//         });
-//       } else {
-//         // console.warn("Parent user not found or invalid referral percent.");
-//       }
-//     }
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Investment successful",
-//       investment,
-//     });
-
-//   } catch (error) {
-//     // console.error("Error in initialInvestment:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: error.message || "Server error",
-//     });
-//   }
-// };
-
 
 export const investment = async (req, res) => {
   try {
@@ -686,16 +554,10 @@ export const investment = async (req, res) => {
       walletAddress,
     });
 
-    await LockedAmountModel.create({
-      userId: user._id,
-      amount: investmentAmount,
-      lockedAt: new Date(),
-      isClaimed: false,
-    })
+
     user.investments.push(investment._id);
     user.mainWallet += Number(investmentAmount);
     user.totalInvestment += Number(investmentAmount);
-    user.lockAmount += Number(investmentAmount)
     user.isVerified = true;
     user.principleAmount += Number(investmentAmount)
     user.status = true;
@@ -1407,53 +1269,43 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    if (Number(user.level) < 1) {
+    if (walletType !== "main-to-additional") {
       return res.status(400).json({
-        message: "You are not eligible to swap amount",
+        message: "Invalid walletType. Only 'main-to-additional' is allowed.",
         success: false,
       });
     }
 
-    let fromWallet, toWallet, fromLabel, toLabel;
-
-    if (walletType === "additional-to-main") {
-      fromWallet = "additionalWallet";
-      toWallet = "mainWallet";
-      fromLabel = "Additional Wallet";
-      toLabel = "Main Wallet";
-    } else if (walletType === "main-to-additional") {
-      fromWallet = "mainWallet";
-      toWallet = "additionalWallet";
-      fromLabel = "Main Wallet";
-      toLabel = "Additional Wallet";
-    } else {
-      return res.status(400).json({
-        message: "Invalid walletType",
-        success: false,
-      });
-    }
-
-    const fromBalance = Number(user[fromWallet]);
-    const toBalance = Number(user[toWallet]);
+    const fromBalance = Number(user.mainWallet);
+    const toBalance = Number(user.additionalWallet);
 
     if (fromBalance < amount) {
       return res.status(400).json({
-        message: `Insufficient balance in ${fromLabel}`,
+        message: "Insufficient balance in Main Wallet",
         success: false,
       });
     }
 
-    // Perform the swap with Number()
-    user[fromWallet] = fromBalance - amount;
-    user[toWallet] = toBalance + amount;
+    user.mainWallet = fromBalance - amount;
+    user.additionalWallet = toBalance + amount;
+    user.lockAmount += amount;
+
 
     await user.save();
+    await LockedAmountModel.create({
+      userId: user._id,
+      amount,
+      lockedAt: new Date(),
+      isClaimed: false,
+      isUnlocked: false,
+    });
+
 
     return res.status(200).json({
       success: true,
-      message: `₹${amount} swapped successfully from ${fromLabel} to ${toLabel}`,
-      mainWallet: Number(user.mainWallet),
-      additionalWallet: Number(user.additionalWallet),
+      message: `₹${amount} swapped successfully from Main Wallet to Additional Wallet`,
+      mainWallet: user.mainWallet,
+      additionalWallet: user.additionalWallet,
     });
   } catch (error) {
     return res.status(500).json({
@@ -2915,6 +2767,99 @@ export const getAllStakeInvestmentHistory = async (req, res) => {
 
   }
 }
+export const redeemLockAmount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const { historyId } = req.body;
+    if (!historyId) {
+      return res.status(400).json({
+        message: "History ID is required",
+        success: false
+      });
+    }
+
+    const lockedEntry = await LockedAmountModel.findOne({
+      _id: historyId,
+      userId,
+      isUnlocked: true
+    });
+
+    if (!lockedEntry) {
+      return res.status(404).json({
+        message: "Locked amount entry not found or not eligible for redemption",
+        success: false
+      });
+    }
+
+    if (lockedEntry.isClaimed) {
+      return res.status(400).json({
+        message: "This amount has already been claimed",
+        success: false
+      });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false
+      });
+    }
+
+    user.mainWallet += lockedEntry.amount;
+    await user.save();
+
+    lockedEntry.isClaimed = true;
+    await lockedEntry.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Amount redeemed successfully and sent to Main Wallet",
+      redeemedAmount: lockedEntry.amount,
+      mainWalletBalance: user.mainWallet
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Error redeeming unlocked amount",
+      success: false
+    });
+  }
+};
 
 
+export const getAllLockedHistory = async (req, res) => {
+  try {
+    const userId = req.user._id;
 
+    if (!userId) {
+      return res.status(401).json({
+        message: "User not authenticated",
+        success: false
+      });
+    }
+
+    const history = await LockedAmountModel.find({ userId }).sort({ createdAt: -1 });
+
+    if (!history || history.length === 0) {
+      return res.status(404).json({
+        message: "No locked amount history found",
+        success: false
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Locked amount history fetched successfully",
+      data: history
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Error fetching locked amount history",
+      success: false
+    });
+
+  }
+}
