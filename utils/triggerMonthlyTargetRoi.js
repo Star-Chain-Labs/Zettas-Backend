@@ -73,7 +73,6 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     });
 
     user.currentEarnings += tradeAmount;
-    user.totalRoi += tradeAmount;
     user.mainWallet += tradeAmount;
     user.dailyRoi = Number(tradeAmount);
     user.totalRoi += Number(tradeAmount);
