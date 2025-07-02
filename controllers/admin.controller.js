@@ -426,7 +426,7 @@ export const getAllReferalBonusHistory = async (req, res) => {
       },
       {
         path: "investmentId",
-        select: "investmentAmount"
+        select: "investmentAmount investmentDate",
       }
     ]);
 
@@ -1522,40 +1522,6 @@ export const deleteBanner = async (req, res) => {
     });
   }
 };
-// export const adminTopUp = async (req, res) => {
-//   try {
-//     const { userId, amount } = req.body;
-//     console.log(req.body)
-
-//     if (!userId || !amount) {
-//       return res.status(400).json({ success: false, message: "Missing userId or amount" });
-//     }
-
-//     const user = await UserModel.findById(userId);
-//     if (!user || !user.walletAddress) {
-//       return res.status(404).json({ success: false, message: "User or wallet address not found" });
-//     }
-//     const result = await WithdrawalUsdt({ req, res, userId, walletAddress: user.walletAddress, amount });
-//     if (result.status) {
-//       user.isLoginBlocked = false;
-//       await user.save();
-//       return res.status(200).json({
-//         success: true,
-//         message: "USDT transferred and user unblocked",
-//       });
-//     }
-//     else {
-//       return res.status(500).json({
-//         success: false,
-//         message: "Withdrawal failed",
-//       });
-//     }
-
-//   } catch (error) {
-//     console.error("adminTopUp Error:", error);
-//     return res.status(500).json({ success: false, message: "Internal Server Error" });
-//   }
-// };
 
 export const blockUser = async (req, res) => {
   try {
@@ -1651,12 +1617,11 @@ export const adminTopUp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Amount must be a valid number" });
     }
 
-    const user = await UserModel.findOne({ username: userId });
+    const user = await UserModel.findOne({ referralCode: userId });
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // ✅ User Topup Update
     user.mainWallet += amountNumber;
     user.totalInvestment += amountNumber;
     user.principleAmount += amountNumber;
@@ -1668,7 +1633,7 @@ export const adminTopUp = async (req, res) => {
     user.isLoginBlocked = false;
     await user.save();
 
-    await Investment.create({
+    const investmentID = await Investment.create({
       userId: user._id,
       investmentAmount: amountNumber,
       investmentDate: new Date(),
@@ -1680,11 +1645,13 @@ export const adminTopUp = async (req, res) => {
       userId: user._id,
       amount: amountNumber,
     });
+    console.log(user.sponsorId, "sponsorId")
 
-    // ✅ Referral Income Logic
     if (user.sponsorId) {
       const parentUser = await UserModel.findById(user.sponsorId);
+      console.log(parentUser, "parentUser")
       const percentData = await DirectreferalPercentage.findOne();
+      console.log(percentData);
 
       const percent = Number(percentData?.directReferralPercentage || 0);
       if (parentUser && percent > 0) {
@@ -1701,7 +1668,7 @@ export const adminTopUp = async (req, res) => {
           userId: parentUser._id,
           fromUser: user._id,
           amount: referralBonus,
-          investmentId: null,
+          investmentId: investmentID?._id,
           date: new Date(),
         });
       }

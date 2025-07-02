@@ -2,13 +2,11 @@ import {
     JsonRpcProvider,
     Wallet,
     Contract,
-    parseUnits,
     isAddress,
 } from "ethers";
 import dotenv from "dotenv";
 import UserModel from "../models/user.model.js";
-import Settings from "../models/settings.model.js";
-import WithdrawalLimit from "../models/WithdrawalLimit.model.js";
+
 import { sendWithdrawalApproveEmail, sendWithdrawalConfirmationEmail } from "../utils/sendWithdrawalConfirmationEmail.js";
 import bcrypt from "bcrypt"
 import Withdrawal from "../models/withdrawal.model.js";
@@ -25,7 +23,7 @@ const usdtABI = [
     "function transfer(address to, uint256 amount) public returns (bool)",
     "function balanceOf(address) view returns (uint256)",
 ];
-const usdtContract = new Contract(usdtAddress, usdtABI, wallet);
+// const usdtContract = new Contract(usdtAddress, usdtABI, wallet);
 
 // export const processWithdrawal = async (req, res) => {
 //     const userId = req.user._id;
@@ -227,8 +225,6 @@ const usdtContract = new Contract(usdtAddress, usdtABI, wallet);
 //             });
 //     }
 // };
-
-
 
 
 export const processWithdrawal = async (req, res) => {

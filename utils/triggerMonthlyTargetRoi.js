@@ -20,8 +20,6 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
 
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    const investment = await Investment.findOne({ userId });
-    if (!investment) return res.status(400).json({ success: false, message: "No investment found" });
 
     const investedAmount = Number(user?.additionalWallet || 0);
     if (isNaN(investedAmount) || investedAmount <= 0) {

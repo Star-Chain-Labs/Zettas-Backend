@@ -115,5 +115,4 @@ router.route("/admin-topup-history").get(isAdminAuthenticated, adminTopUpHistory
 router.route("/income-toggle-status").post(isAdminAuthenticated, incomeBlock)
 router.route("/get-all-stake-history").get(isAdminAuthenticated, getAllStakeInvestmentHistory);
 
-
 export default router;
