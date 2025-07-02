@@ -1625,7 +1625,6 @@ export const adminTopUp = async (req, res) => {
     user.mainWallet += amountNumber;
     user.totalInvestment += amountNumber;
     user.principleAmount += amountNumber;
-    user.currentEarnings += amountNumber;
     user.isVerified = true;
     user.status = true;
     user.activeDate = new Date();
