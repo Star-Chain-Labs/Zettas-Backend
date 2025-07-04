@@ -46,7 +46,7 @@ export const distributeCommissions4Level = async (user, investedAmount) => {
       console.log(`✅ Level ${level} commission ₹${commissionAmount} to ${uplineUser.username}`);
 
       uplineUser.currentEarnings += commissionAmount;
-      uplineUser.mainWallet += commissionAmount;
+      uplineUser.roiAndLevelIncome += commissionAmount;
       uplineUser.levelIncome += commissionAmount;
       await uplineUser.save();
 

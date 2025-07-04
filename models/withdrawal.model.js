@@ -15,6 +15,11 @@ const withdrawalSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    walletType: {
+      type: String,
+      enum: ["mainWallet", "roiAndLevelIncome"],
+      required: true,
+    },
     netAmountSent: {
       type: Number,
       required: true,

@@ -38,25 +38,33 @@ export const calculateTeams = async (userId, startDate = null, endDate = null) =
       });
       teamC.push(...referredByB);
     }
-
-    // ✅ Calculate investments
-    const sumInvestments = (team) =>
-      team.reduce((sum, member) => sum + (Number(member.totalInvestment) || 0), 0);
-
-    const teamAInvestment = sumInvestments(teamA);
-    const teamBInvestment = sumInvestments(teamB);
-    const teamCInvestment = sumInvestments(teamC);
-    const totalInvestment = teamAInvestment + teamBInvestment + teamCInvestment;
+    let teamD = [];
+    for (let b of teamC) {
+      const referredByC = await UserModel.find({
+        _id: { $in: b.referedUsers },
+        ...dateFilter,
+      });
+      teamD.push(...referredByC);
+    }
+    let teamE = [];
+    for (let b of teamD) {
+      const referredByD = await UserModel.find({
+        _id: { $in: b.referedUsers },
+        ...dateFilter,
+      });
+      teamE.push(...referredByD);
+    }
 
     return {
       teamA,
       teamB,
       teamC,
+      teamD,
+      teamE,
       totalTeamBC: teamB.length + teamC.length,
-      teamAInvestment,
-      teamBInvestment,
-      teamCInvestment,
-      totalInvestment,
+      totalTeamDE: teamD.length + teamE.length,
+      totalTeam: teamA.length + teamB.length + teamC.length + teamD.length + teamE.length,
+
     };
   } catch (error) {
     throw error;

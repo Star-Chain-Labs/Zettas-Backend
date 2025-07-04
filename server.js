@@ -19,7 +19,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: ["https://zettas.tech", "http://localhost:6075"],
+    origin: ["https://zettas.tech", "http://localhost:6075", "http://192.168.1.3:6075"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],

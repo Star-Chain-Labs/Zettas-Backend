@@ -226,7 +226,6 @@ const usdtABI = [
 //     }
 // };
 
-
 export const processWithdrawal = async (req, res) => {
     const userId = req.user._id;
 
@@ -240,10 +239,9 @@ export const processWithdrawal = async (req, res) => {
             return res.status(403).json({ success: false, message: "Withdrawals are blocked for your account." });
         }
 
-        const { userWalletAddress, amount, otp, loginPassword } = req.body;
+        const { userWalletAddress, amount, otp, loginPassword, walletType } = req.body;
 
-        // Validate input fields
-        if (!userWalletAddress || !amount || !otp || !loginPassword) {
+        if (!userWalletAddress || !amount || !otp || !loginPassword || !walletType) {
             return res.status(400).json({ success: false, message: "All fields are required." });
         }
 
@@ -251,12 +249,15 @@ export const processWithdrawal = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid wallet address." });
         }
 
+        if (walletType !== "mainWallet" && walletType !== "roiAndLevelIncome") {
+            return res.status(400).json({ success: false, message: "Invalid wallet type specified." });
+        }
+
         const isPasswordCorrect = await bcrypt.compare(loginPassword, user.password);
         if (!isPasswordCorrect) {
             return res.status(401).json({ success: false, message: "Incorrect login password." });
         }
 
-        // Validate OTP
         if (user.otp !== otp || user.otpExpire < Date.now()) {
             return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
         }
@@ -266,22 +267,39 @@ export const processWithdrawal = async (req, res) => {
             return res.status(400).json({ success: false, message: "Minimum withdrawal is $10." });
         }
 
-        if (user.mainWallet < numericAmount) {
-            return res.status(400).json({ success: false, message: "Insufficient wallet balance." });
+        if (walletType === "roiAndLevelIncome") {
+            const today = new Date();
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            if (today.getDate() !== lastDayOfMonth) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Withdrawals from ROI & Level income are only allowed on the last day of the month.",
+                });
+            }
+
+            if (user.roiAndLevelIncome < numericAmount) {
+                return res.status(400).json({ success: false, message: "Insufficient ROI & Level income balance." });
+            }
+
+            user.roiAndLevelIncome -= numericAmount;
         }
 
-        // Fee deduction (10%)
-        const fee = (numericAmount * 10) / 100;
+        if (walletType === "mainWallet") {
+            if (user.mainWallet < numericAmount) {
+                return res.status(400).json({ success: false, message: "Insufficient main wallet balance." });
+            }
+
+            user.mainWallet -= numericAmount;
+        }
+
+        const fee = (numericAmount * 5) / 100;
         const netAmount = numericAmount - fee;
 
-        // Update user
-        user.mainWallet -= numericAmount;
         user.totalPayouts += numericAmount;
         user.otp = null;
         user.otpExpire = null;
         await user.save();
 
-        // Save withdrawal
         await Withdrawal.create({
             userId,
             userWalletAddress,
@@ -290,9 +308,9 @@ export const processWithdrawal = async (req, res) => {
             netAmountSent: netAmount,
             status: "pending",
             transactionHash: "",
+            walletType,
         });
 
-        // Email notification
         await sendWithdrawalConfirmationEmail(
             user.email,
             user.name,
@@ -304,7 +322,7 @@ export const processWithdrawal = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: `Withdrawal request submitted successfully. Net amount: $${netAmount.toFixed(2)}. Processing soon.`,
+            message: `Withdrawal request submitted successfully. Net amount: $${netAmount.toFixed(2)}.`,
         });
 
     } catch (error) {

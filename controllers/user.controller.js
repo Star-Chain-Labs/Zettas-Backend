@@ -572,39 +572,7 @@ export const investment = async (req, res) => {
       investment.investmentDate
     );
 
-    if (user.sponsorId) {
-      const parentUser = await UserModel.findById(user.sponsorId);
-      const percentData = await DirectreferalPercentage.findOne();
 
-      if (!percentData) {
-        // console.warn("No DirectreferalPercentage document found.");
-      } else {
-        // console.log("Direct referral percentage data:", percentData);
-      }
-
-      const percent = Number(percentData?.directReferralPercentage);
-      if (parentUser && !parentUser.isIncomeBlocked && !isNaN(percent)) {
-        // console.log(`Referral percent: ${percent}%`);
-        const referralBonus = (investmentAmount * percent) / 100;
-        // console.log(`Calculated referral bonus: $${referralBonus}`);
-        parentUser.directReferalAmount += referralBonus;
-        parentUser.mainWallet += referralBonus;
-        parentUser.totalEarnings += referralBonus;
-        parentUser.currentEarnings += referralBonus;
-        parentUser.aiCredits += 1;
-        await parentUser.save();
-
-        await ReferalBonus.create({
-          userId: parentUser._id,
-          fromUser: user._id,
-          amount: referralBonus,
-          investmentId: investment._id,
-          date: new Date(),
-        });
-      } else {
-        // console.warn("Parent user not found or referral percent is invalid.");
-      }
-    }
 
     return res.status(201).json({
       success: true,
@@ -1286,12 +1254,44 @@ export const swapAmount = async (req, res) => {
       });
     }
 
+    // Deduct from mainWallet and add to additionalWallet
     user.mainWallet = fromBalance - amount;
     user.additionalWallet = toBalance + amount;
     user.lockAmount += amount;
 
-
     await user.save();
+
+    // ➤ Referral Bonus Logic
+    if (user.sponsorId) {
+      const parentUser = await UserModel.findById(user.sponsorId);
+      const percentData = await DirectreferalPercentage.findOne();
+      const percent = Number(percentData?.directReferralPercentage || 0);
+
+      if (
+        parentUser &&
+        !parentUser.isIncomeBlocked &&
+        !isNaN(percent) &&
+        percent > 0
+      ) {
+        const referralBonus = (amount * percent) / 100;
+
+        parentUser.directReferalAmount += referralBonus;
+        parentUser.mainWallet += referralBonus;
+        parentUser.totalEarnings += referralBonus;
+        parentUser.currentEarnings += referralBonus;
+        parentUser.aiCredits += 1;
+
+        await parentUser.save();
+
+        await ReferalBonus.create({
+          userId: parentUser._id,
+          fromUser: user._id,
+          amount: referralBonus,
+          date: new Date(),
+        });
+      }
+    }
+
     await LockedAmountModel.create({
       userId: user._id,
       amount,
@@ -1300,20 +1300,21 @@ export const swapAmount = async (req, res) => {
       isUnlocked: false,
     });
 
-
     return res.status(200).json({
       success: true,
-      message: `You have successfully swapped ${amount}  and received equivalent AI Credit balance.`,
+      message: `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
       mainWallet: user.mainWallet,
       additionalWallet: user.additionalWallet,
     });
   } catch (error) {
+    console.error("Swap Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
     });
   }
 };
+
 
 export const allIncomes = async (req, res) => {
   const userId = req.user._id;
@@ -1635,51 +1636,6 @@ export const verifyOtpForPassword = async (req, res) => {
   }
 };
 
-// export const getMemeberAndTeamData = async (req, res) => {
-//   try {
-//     const userId = req.user._id;
-
-//     if (!userId) {
-//       return res.status(400).json({
-//         message: "User not Authorized",
-//         success: false
-//       });
-//     }
-//     const allUsers = await UserModel.find({ sponsorId: userId });
-
-//     if (!allUsers || !allUsers.length) {
-//       return res.status(200).json({
-//         message: "No Team Found for this user",
-//         success: false
-//       });
-//     }
-
-//     const { teamA, teamB, teamC, totalTeamBC } = await calculateTeams(userId);
-
-//     return res.status(200).json({
-//       message: "Team Data fetched successfully",
-//       success: true,
-//       data: {
-//         teamA: teamA.length,
-//         teamB: teamB.length,
-//         teamC: teamC.length,
-//         totalTeamBC,
-//         totalTeam: teamA.length + teamB.length + teamC.length,
-//         teamAMembers: teamA,
-//         teamBMembers: teamB,
-//         teamCMembers: teamC,
-//       }
-//     });
-
-//   } catch (error) {
-//     return res.status(500).json({
-//       message: error.message || "Getting Error in getMember Data",
-//       success: false
-//     });
-//   }
-// };
-
-
 export const getMemeberAndTeamData = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -1705,11 +1661,9 @@ export const getMemeberAndTeamData = async (req, res) => {
       teamA,
       teamB,
       teamC,
+      teamD,
+      teamE,
       totalTeamBC,
-      teamAInvestment,
-      teamBInvestment,
-      teamCInvestment,
-      totalInvestment,
     } = await calculateTeams(userId, startDate, endDate);
 
     return res.status(200).json({
@@ -1719,23 +1673,99 @@ export const getMemeberAndTeamData = async (req, res) => {
         teamA: teamA.length,
         teamB: teamB.length,
         teamC: teamC.length,
+        teamD: teamD.length,
+        teamE: teamE.length,
         totalTeamBC,
         totalTeam: teamA.length + teamB.length + teamC.length,
         teamAMembers: teamA,
         teamBMembers: teamB,
         teamCMembers: teamC,
-
-        // ✅ Add investment details
-        teamAInvestment,
-        teamBInvestment,
-        teamCInvestment,
-        totalInvestment,
       },
     });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Getting Error in getMember Data",
       success: false,
+    });
+  }
+};
+
+export const getAllRebetHistoryForUser = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+
+    const commissions = await Commission.find({ userId })
+      .populate("fromUserId", "username name")
+      .sort({ createdAt: -1 });
+
+    if (commissions.length === 0) {
+      return res.status(200).json({
+        message: "No commission history found",
+        success: false,
+      });
+    }
+
+
+    const result = {
+      teamCommission: {
+        teamA: 0,
+        teamB: 0,
+        teamC: 0,
+        teamD: 0,
+        teamE: 0
+      },
+      teamMembers: {
+        teamA: [],
+        teamB: [],
+        teamC: [],
+        teamD: [],
+        teamE: []
+      }
+    };
+
+    commissions.forEach((entry) => {
+      const level = entry.level;
+      const name = entry.fromUserId?.name || entry.fromUserId?.username || "Unknown";
+      const amount = entry.commissionAmount;
+
+      if (level === 1) {
+        result.teamCommission.teamA += amount;
+        result.teamMembers.teamA.push({ name, amount });
+      } else if (level === 2) {
+        result.teamCommission.teamB += amount;
+        result.teamMembers.teamB.push({ name, amount });
+      } else if (level === 3) {
+        result.teamCommission.teamC += amount;
+        result.teamMembers.teamC.push({ name, amount });
+      } else if (level === 4) {
+        result.teamCommission.teamD += amount;
+        result.teamMembers.teamD.push({ name, amount });
+      } else if (level === 5) {
+        result.teamCommission.teamE += amount;
+        result.teamMembers.teamE.push({ name, amount });
+      }
+    });
+
+    for (const key in result.teamCommission) {
+      result.teamCommission[key] = Number(result.teamCommission[key].toFixed(4));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Team commission data fetched successfully",
+      data: result
+    });
+
+  } catch (error) {
+    console.error("Error fetching rebate history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
     });
   }
 };
@@ -2827,8 +2857,6 @@ export const redeemLockAmount = async (req, res) => {
     });
   }
 };
-
-
 export const getAllLockedHistory = async (req, res) => {
   try {
     const userId = req.user._id;

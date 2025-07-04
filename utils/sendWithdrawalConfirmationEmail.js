@@ -17,7 +17,7 @@ export const sendWithdrawalConfirmationEmail = async (email, name, amount, netAm
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
         <h2 style="color: #4CAF50;">Hello ${name},</h2>
-        <p>Your withdrawal request will be processed within 3 hours.</p>
+        <p>Your withdrawal request will be processed within 96 hours.</p>
 
         <h3>🔁 Transaction Details:</h3>
         <ul>

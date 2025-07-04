@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema(
       ref: "UserModel",
       default: null,
     },
+    roiAndLevelIncome: {
+      type: Number,
+      default: 0,
+    },
     username: {
       type: String,
     },
