@@ -29,14 +29,11 @@ export const distributeCommissions4Level = async (user, investedAmount) => {
       const { level, percent } = commissionRatesByLevel[i];
 
       const directReferralsCount = await UserModel.countDocuments({ sponsorId: uplineUser._id });
-
       const allowedLevels = directReferralsCount >= 3 ? 5 : directReferralsCount >= 2 ? 2 : 0;
-
       if (level > allowedLevels) {
         console.log(`⛔ Skipping level ${level} income for ${uplineUser.username} (has only ${directReferralsCount} referrals)`);
         continue;
       }
-
       if (uplineUser.isIncomeBlocked) {
         console.log(`⚠️ Skipping commission for ${uplineUser.username} (income blocked)`);
         continue;
