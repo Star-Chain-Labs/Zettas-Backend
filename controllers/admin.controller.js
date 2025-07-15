@@ -1646,32 +1646,32 @@ export const adminTopUp = async (req, res) => {
     });
     console.log(user.sponsorId, "sponsorId")
 
-    if (user.sponsorId) {
-      const parentUser = await UserModel.findById(user.sponsorId);
-      console.log(parentUser, "parentUser")
-      const percentData = await DirectreferalPercentage.findOne();
-      console.log(percentData);
+    // if (user.sponsorId) {
+    //   const parentUser = await UserModel.findById(user.sponsorId);
+    //   console.log(parentUser, "parentUser")
+    //   const percentData = await DirectreferalPercentage.findOne();
+    //   console.log(percentData);
 
-      const percent = Number(percentData?.directReferralPercentage || 0);
-      if (parentUser && percent > 0) {
-        const referralBonus = (amountNumber * percent) / 100;
+    //   const percent = Number(percentData?.directReferralPercentage || 0);
+    //   if (parentUser && percent > 0) {
+    //     const referralBonus = (amountNumber * percent) / 100;
 
-        parentUser.directReferalAmount += referralBonus;
-        parentUser.mainWallet += referralBonus;
-        parentUser.totalEarnings += referralBonus;
-        parentUser.currentEarnings += referralBonus;
-        parentUser.aiCredits += 1;
-        await parentUser.save();
+    //     parentUser.directReferalAmount += referralBonus;
+    //     parentUser.mainWallet += referralBonus;
+    //     parentUser.totalEarnings += referralBonus;
+    //     parentUser.currentEarnings += referralBonus;
+    //     parentUser.aiCredits += 1;
+    //     await parentUser.save();
 
-        await ReferalBonus.create({
-          userId: parentUser._id,
-          fromUser: user._id,
-          amount: referralBonus,
-          investmentId: investmentID?._id,
-          date: new Date(),
-        });
-      }
-    }
+    //     await ReferalBonus.create({
+    //       userId: parentUser._id,
+    //       fromUser: user._id,
+    //       amount: referralBonus,
+    //       investmentId: investmentID?._id,
+    //       date: new Date(),
+    //     });
+    //   }
+    // }
 
     return res.status(200).json({
       message: "User TopUp Successful and referral bonus Distributed",
