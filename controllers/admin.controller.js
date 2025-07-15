@@ -1639,12 +1639,10 @@ export const adminTopUp = async (req, res) => {
       txResponse: await generateRandomTxResponse(),
     });
 
-    // ✅ Admin TopUp Record
     await AdminTopUp.create({
       userId: user._id,
       amount: amountNumber,
     });
-    console.log(user.sponsorId, "sponsorId")
 
     // if (user.sponsorId) {
     //   const parentUser = await UserModel.findById(user.sponsorId);
@@ -1674,7 +1672,7 @@ export const adminTopUp = async (req, res) => {
     // }
 
     return res.status(200).json({
-      message: "User TopUp Successful and referral bonus Distributed",
+      message: "User TopUp Successful ",
       success: true,
     });
 
