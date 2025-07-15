@@ -21,10 +21,11 @@ export const distributeRoi = async () => {
         continue;
       }
 
-      const totalInvestmentAmount = investments.reduce(
-        (sum, inv) => sum + inv.investmentAmount,
-        0
-      );
+      const totalInvestmentAmount = user.mainWallet
+      // investments.reduce(
+      //   (sum, inv) => sum + inv.investmentAmount,
+      //   0
+      // );
       // console.log("📊 Total Investment Amount:", totalInvestmentAmount);
 
       const { teamA, teamB, teamC } = await calculateTeams(user._id);

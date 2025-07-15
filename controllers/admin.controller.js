@@ -424,10 +424,7 @@ export const getAllReferalBonusHistory = async (req, res) => {
         path: "fromUser",
         select: "username email name",
       },
-      {
-        path: "investmentId",
-        select: "investmentAmount investmentDate",
-      }
+
     ]);
 
     if (!referalBonusHistory) {

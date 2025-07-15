@@ -2,6 +2,7 @@ import UserModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import {
+  generateRandomTxResponse,
   generateReferralCode,
 } from "../utils/Random.js";
 import Investment from "../models/investment.model.js";
@@ -1288,6 +1289,8 @@ export const swapAmount = async (req, res) => {
           fromUser: user._id,
           amount: referralBonus,
           date: new Date(),
+          transferAmount: amount
+
         });
       }
     }
@@ -1485,7 +1488,7 @@ export const ReferralIncomeHistory = async (req, res) => {
       });
     }
 
-    const history = await ReferalBonus.find({ userId }).populate("userId", "username").populate("fromUser", "username").populate("investmentId", "investmentAmount");
+    const history = await ReferalBonus.find({ userId }).populate("userId", "username").populate("fromUser", "username");
     if (history.length === 0) {
       return res.status(200).json({
         message: "No history found",
@@ -1832,12 +1835,7 @@ export const transferAmountToAnotherUser = async (req, res) => {
       });
     }
     const sender = await UserModel.findById(transferUserId);
-    if (sender.totalTradeCount < 5) {
-      return res.status(400).json({
-        message: "You need to complete 5 trades before transferring funds",
-        success: false,
-      });
-    }
+
 
     if (!sender) {
       return res.status(404).json({
@@ -1861,6 +1859,12 @@ export const transferAmountToAnotherUser = async (req, res) => {
     if (!receiver) {
       return res.status(404).json({
         message: "Receiver user not found",
+        success: false,
+      });
+    }
+    if (receiver._id.toString() === sender._id.toString()) {
+      return res.status(400).json({
+        message: "You cannot transfer to your own account",
         success: false,
       });
     }

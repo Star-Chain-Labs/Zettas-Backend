@@ -73,6 +73,7 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     user.roiAndLevelIncome += Number(tradeAmount);
     user.dailyRoi = Number(tradeAmount);
     user.totalRoi += Number(tradeAmount);
+    user.totalTradeCount += 1
     await user.save();
 
     await distributeCommissions4Level(user, tradeAmount);

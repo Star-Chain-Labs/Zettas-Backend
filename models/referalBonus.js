@@ -13,9 +13,9 @@ const referalBonusSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "UserModel",
   },
-  investmentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Investment",
+  transferAmount: {
+    type: Number,
+    default: 0
   },
   date: {
     type: Date,
