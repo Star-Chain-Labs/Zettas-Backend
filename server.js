@@ -19,14 +19,18 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: ["https://zettas.tech", "http://localhost:6075", "http://192.168.1.3:6075","https://myprojectdesktop.starchainlabs.in"],
+    origin: [
+      "https://zettas.tech",
+      "http://localhost:6075",
+      "http://192.168.1.3:6075",
+      "https://myprojectdesktop.starchainlabs.in",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     optionsSuccessStatus: 200,
   })
 );
-
 
 app.use("/api/users", UserRouter);
 app.use("/api/admin", AdminRouter);
@@ -40,9 +44,7 @@ const io = new Server(server, {
   },
 });
 
-
 io.on("connection", (socket) => {
-
   socket.on("joinTicket", async (ticketId) => {
     const ticket = await Support.findById(ticketId);
     if (!ticket || ticket.status === "Closed") {
@@ -64,8 +66,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("disconnect", () => {
-  });
+  socket.on("disconnect", () => {});
 });
 
 connectToDB()

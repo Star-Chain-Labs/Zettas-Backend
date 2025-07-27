@@ -8,7 +8,7 @@ import WithdrawalRequestModel from "../models/withdrawal.model.js";
 
 // ✅ Set Up Provider & Wallet
 const provider = new ethers.JsonRpcProvider(process.env.BSC_RPC_URL);
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+// const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 const usdtAbi = [
     "function balanceOf(address account) view returns (uint256)",

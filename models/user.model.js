@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     },
     principleAmount: {
       type: Number,
-      default: 0
+      default: 0,
     },
 
     additionalWallet: {
@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema(
     },
     name: {
       type: String,
-      default: ""
+      default: "",
     },
 
     parentReferedCode: {
@@ -107,7 +107,7 @@ const userSchema = new mongoose.Schema(
     },
     plainPassword: {
       type: String,
-      default: ""
+      default: "",
     },
     otp: {
       type: String,
@@ -182,9 +182,8 @@ const userSchema = new mongoose.Schema(
     },
     lockAmount: {
       type: Number,
-      default: 0
-    }
-    ,
+      default: 0,
+    },
     isLoginBlocked: {
       type: Boolean,
       default: false,
@@ -204,7 +203,6 @@ const userSchema = new mongoose.Schema(
     lastWithdrawalDate: {
       type: Date,
     },
-
 
     withdrawalBlockedUntil: {
       type: Date,
@@ -228,15 +226,15 @@ const userSchema = new mongoose.Schema(
     },
     twoFASecret: {
       type: String,
-      default: ""
+      default: "",
     },
     ipAddress: {
       type: String,
-      default: ""
+      default: "",
     },
     macAddress: {
       type: String,
-      default: ""
+      default: "",
     },
     // bep20Address: {
     //   type: String,
@@ -244,11 +242,11 @@ const userSchema = new mongoose.Schema(
     // },
     depositPrivateKey: {
       type: String,
-      default: null
+      default: null,
     },
     depositWalletAddress: {
       type: String,
-      default: null
+      default: null,
     },
     isWithdrawalblock: { type: Boolean, default: false },
     // trc20Address: {
@@ -259,8 +257,6 @@ const userSchema = new mongoose.Schema(
 
   { timestamps: true }
 );
-
-
 
 const UserModel = mongoose.model("UserModel", userSchema);
 export default UserModel;
