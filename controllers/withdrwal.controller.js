@@ -228,6 +228,7 @@ export const processWithdrawal = async (req, res) => {
   const userId = req.user._id;
 
   try {
+    // 1. User validate
     const user = await UserModel.findById(userId);
     if (!user) {
       return res
@@ -245,6 +246,7 @@ export const processWithdrawal = async (req, res) => {
     const { userWalletAddress, amount, otp, loginPassword, walletType } =
       req.body;
 
+    // 2. Required fields check
     if (
       !userWalletAddress ||
       !amount ||
@@ -257,18 +259,25 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "All fields are required." });
     }
 
+    // 3. Wallet address validate
     if (!isAddress(userWalletAddress)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid wallet address." });
     }
 
-    if (walletType !== "mainWallet" && walletType !== "roiAndLevelIncome") {
+    // 4. Wallet types validate
+    if (
+      walletType !== "mainWallet" &&
+      walletType !== "levelWallet" &&
+      walletType !== "tradeWallet"
+    ) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid wallet type specified." });
     }
 
+    // 5. Password check
     const isPasswordCorrect = await bcrypt.compare(
       loginPassword,
       user.password
@@ -279,22 +288,14 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Incorrect login password." });
     }
 
+    // 6. OTP validate
     if (user.otp !== otp || user.otpExpire < Date.now()) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired OTP." });
     }
 
-    if (
-      !user.referedUsers ||
-      user.referedUsers.length < 5 ||
-      user.referedUsers.every((u) => u.isVerified !== true)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "You need at least 5 active referred users to withdrawal.",
-      });
-    }
+    // 7. Amount validate
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount < 10) {
       return res
@@ -302,7 +303,31 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Minimum withdrawal is $10." });
     }
 
-    if (walletType === "roiAndLevelIncome") {
+    // 8. Wallet specific logic
+    if (walletType === "levelWallet") {
+      // 5 Active referred users check
+      const activeUsers =
+        user.referedUsers?.filter((u) => u.isVerified === true).length || 0;
+      if (activeUsers < 5) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You need at least 5 active referred users to withdraw from Level Wallet.",
+        });
+      }
+
+      if (user.levelIncome < numericAmount) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient Level Income balance.",
+        });
+      }
+
+      user.levelIncome -= numericAmount;
+    }
+
+    if (walletType === "tradeWallet") {
+      // Month end check
       const today = new Date();
       const lastDayOfMonth = new Date(
         today.getFullYear(),
@@ -313,31 +338,32 @@ export const processWithdrawal = async (req, res) => {
         return res.status(403).json({
           success: false,
           message:
-            "Withdrawals from ROI & Level income are only allowed on the last day of the month.",
+            "Withdrawals from Trade Wallet are only allowed on the last day of the month.",
         });
       }
 
-      if (user.roiAndLevelIncome < numericAmount) {
+      if (user.totalRoi < numericAmount) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient ROI & Level income balance.",
+          message: "Insufficient Trade Wallet (ROI) balance.",
         });
       }
 
-      user.roiAndLevelIncome -= numericAmount;
+      user.totalRoi -= numericAmount;
     }
 
     if (walletType === "mainWallet") {
       if (user.mainWallet < numericAmount) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient main wallet balance.",
+          message: "Insufficient Main Wallet balance.",
         });
       }
 
       user.mainWallet -= numericAmount;
     }
 
+    // 9. Fee calculation
     const fee = (numericAmount * 5) / 100;
     const netAmount = numericAmount - fee;
 
@@ -346,6 +372,7 @@ export const processWithdrawal = async (req, res) => {
     user.otpExpire = null;
     await user.save();
 
+    // 10. Withdrawal record create
     await Withdrawal.create({
       userId,
       userWalletAddress,
@@ -357,6 +384,7 @@ export const processWithdrawal = async (req, res) => {
       walletType,
     });
 
+    // 11. Send confirmation mail
     await sendWithdrawalConfirmationEmail(
       user.email,
       user.name,

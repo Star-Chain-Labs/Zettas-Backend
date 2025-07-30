@@ -3,7 +3,12 @@ import Investment from "../models/investment.model.js";
 import Roi from "../models/roi.model.js";
 import { distributeCommissions4Level } from "./distributeLevelIncomeUpto4Level.js";
 
-function generateRandomRoiTillTarget(currentTotalRoi, investedAmount, totalTargetPercent, remainingDays) {
+function generateRandomRoiTillTarget(
+  currentTotalRoi,
+  investedAmount,
+  totalTargetPercent,
+  remainingDays
+) {
   const maxTarget = (investedAmount * totalTargetPercent) / 100;
   const remainingRoi = maxTarget - currentTotalRoi;
   if (remainingRoi <= 0 || remainingDays <= 0) return 0;
@@ -17,11 +22,16 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
   try {
     const userId = req.user._id;
     const user = await UserModel.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
     const investedAmount = Number(user?.additionalWallet || 0);
     if (isNaN(investedAmount) || investedAmount <= 0) {
-      return res.status(400).json({ success: false, message: "Invalid investment amount." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid investment amount." });
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -40,12 +50,20 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     }
 
     const tradeRecords = await Roi.find({ userId }).sort({ createdAt: 1 });
-    const totalEarnedRoi = tradeRecords.reduce((sum, r) => sum + (r.roiAmount || 0), 0);
+    const totalEarnedRoi = tradeRecords.reduce(
+      (sum, r) => sum + (r.roiAmount || 0),
+      0
+    );
     const daysPassed = tradeRecords.length;
     const totalDays = 30;
     const totalTargetPercent = 10;
 
-    const tradeAmount = generateRandomRoiTillTarget(totalEarnedRoi, investedAmount, totalTargetPercent, totalDays - daysPassed);
+    const tradeAmount = generateRandomRoiTillTarget(
+      totalEarnedRoi,
+      investedAmount,
+      totalTargetPercent,
+      totalDays - daysPassed
+    );
 
     if (isNaN(tradeAmount) || tradeAmount <= 0) {
       return res.status(200).json({
@@ -58,7 +76,9 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     const percentage = Number((tradeAmount / investedAmount) * 100);
 
     if (isNaN(percentage)) {
-      return res.status(500).json({ success: false, message: "Invalid percentage calculated." });
+      return res
+        .status(500)
+        .json({ success: false, message: "Invalid percentage calculated." });
     }
 
     await Roi.create({
@@ -73,19 +93,20 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     user.roiAndLevelIncome += Number(tradeAmount);
     user.dailyRoi = Number(tradeAmount);
     user.totalRoi += Number(tradeAmount);
-    user.totalTradeCount += 1
+    user.totalTradeCount += 1;
     await user.save();
 
     await distributeCommissions4Level(user, tradeAmount);
 
     return res.status(200).json({
       success: true,
-      message: `✅ Trade successful. You earned $${tradeAmount.toFixed(2)} Trade today.`,
+      message: `✅ Trade successful. You earned $${tradeAmount.toFixed(
+        2
+      )} Trade today.`,
       tradeAmount: tradeAmount.toFixed(2),
       totalEarned: user.totalRoi,
       tradeStatus: "success",
     });
-
   } catch (err) {
     console.error("❌ Error in triggerMonthlyTargetRoi:", err);
     res.status(500).json({ success: false, message: "Server error." });
