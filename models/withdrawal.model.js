@@ -17,7 +17,7 @@ const withdrawalSchema = new mongoose.Schema(
     },
     walletType: {
       type: String,
-      enum: ["mainWallet", "roiAndLevelIncome"],
+      enum: ["mainWallet", "levelWallet", "tradeWallet"],
       // required: true,
     },
     netAmountSent: {
@@ -30,7 +30,7 @@ const withdrawalSchema = new mongoose.Schema(
     },
     transactionHash: {
       type: String,
-      default: ""
+      default: "",
     },
     status: {
       type: String,

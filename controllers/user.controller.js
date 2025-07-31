@@ -28,9 +28,6 @@ import Roi from "../models/roi.model.js";
 import StakeModel from "../models/stake.model.js";
 import { LockedAmountModel } from "../models/lockamount.model.js";
 
-
-
-
 // const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 
 const findAvailablePosition = async (parentId) => {
@@ -86,11 +83,9 @@ const findAvailablePosition = async (parentId) => {
 //   return { parent: fallbackUser._id, position: "left" };
 // };
 
-
 export const userRegisterWithEmail = async (req, res) => {
   try {
     const { name, email, password, referredBy, phone } = req.body;
-
 
     if (!name || !email || !password || !phone) {
       return res.status(400).json({
@@ -99,9 +94,9 @@ export const userRegisterWithEmail = async (req, res) => {
       });
     }
     const emails = email;
-    const randomVal = await generateReferralCode()
+    const randomVal = await generateReferralCode();
     const referralCode = randomVal.toUpperCase();
-    const username = randomVal
+    const username = randomVal;
     const userCount = await UserModel.countDocuments();
 
     let role = "user";
@@ -133,7 +128,7 @@ export const userRegisterWithEmail = async (req, res) => {
       existingUser.phone = phone;
       existingUser.otpVerified = false;
       existingUser.parentReferedCode = referredBy;
-      existingUser.plainPassword = password
+      existingUser.plainPassword = password;
 
       if (userCount === 0) {
         existingUser.role = "admin";
@@ -145,10 +140,8 @@ export const userRegisterWithEmail = async (req, res) => {
           });
         }
 
-
-
         const sponsorUser = await UserModel.findOne({
-          referralCode: referredBy
+          referralCode: referredBy,
         });
         if (!sponsorUser) {
           return res.status(400).json({
@@ -265,12 +258,10 @@ export const userRegisterWithEmail = async (req, res) => {
       position: side,
       bonusAddedAt: Date.now(),
       parentReferedCode: referredBy,
-      plainPassword: password
-
+      plainPassword: password,
     });
 
     const savedUser = await newUser.save();
-
 
     if (sponsorId) {
       await UserModel.findByIdAndUpdate(sponsorId, {
@@ -335,7 +326,6 @@ export const userRegisterWithEmail = async (req, res) => {
 //       return res.status(400).json({ message: "Invalid OTP" });
 //     }
 
-
 //     const otpExpiryTime = user.otpExpire;
 //     if (new Date() > new Date(otpExpiryTime)) {
 //       return res.status(400).json({ message: "OTP expired" });
@@ -370,7 +360,6 @@ export const userRegisterWithEmail = async (req, res) => {
 
 export const verifyOTP = async (req, res) => {
   try {
-
     let { email, otp } = req.body;
     email = email.toLowerCase();
 
@@ -399,7 +388,10 @@ export const verifyOTP = async (req, res) => {
 
     await sendCredentials(user.email, user.name, rawPassword);
 
-    const encodedPassword = jwt.sign({ password: rawPassword }, process.env.JWT_SECRET);
+    const encodedPassword = jwt.sign(
+      { password: rawPassword },
+      process.env.JWT_SECRET
+    );
 
     user.isVerified = true;
     user.otpVerified = true;
@@ -457,8 +449,8 @@ export const userLogin = async (req, res) => {
     if (!user.isVerified) {
       return res.status(404).json({
         message: "You are not registered",
-        success: false
-      })
+        success: false,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -505,11 +497,10 @@ export const updateProfile = async (req, res) => {
       message: "User updated successfully.",
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
-}
-
+};
 
 export const investment = async (req, res) => {
   try {
@@ -555,12 +546,11 @@ export const investment = async (req, res) => {
       walletAddress,
     });
 
-
     user.investments.push(investment._id);
     user.mainWallet += Number(investmentAmount);
     user.totalInvestment += Number(investmentAmount);
     user.isVerified = true;
-    user.principleAmount += Number(investmentAmount)
+    user.principleAmount += Number(investmentAmount);
     user.status = true;
     user.activeDate = new Date();
     user.aiCredits += 4;
@@ -572,8 +562,6 @@ export const investment = async (req, res) => {
       investmentAmount,
       investment.investmentDate
     );
-
-
 
     return res.status(201).json({
       success: true,
@@ -594,11 +582,12 @@ export const userLogout = async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1] || req.cookies.token;
 
     if (!token) {
-      return res.status(400).json({ success: false, message: "No token found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No token found" });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
 
     await BlacklistToken.create({
       token,
@@ -610,7 +599,9 @@ export const userLogout = async (req, res) => {
       message: "User logged out successfully",
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Logout failed", error: error.message });
+    return res
+      .status(500)
+      .json({ success: false, message: "Logout failed", error: error.message });
   }
 };
 const getAllDownlines = async (userId) => {
@@ -1098,7 +1089,7 @@ export const generate2FAHandler = async (req, res) => {
       return res.status(400).json({ error: "email is required" });
     }
 
-    const user = await UserModel.findOne({ email })
+    const user = await UserModel.findOne({ email });
 
     if (user.twoFASecret) {
       return res.status(400).json({
@@ -1189,10 +1180,10 @@ export const changePassword = async (req, res) => {
     await existingUser.save();
 
     return res.status(200).json({
-      message: "Password changed successfully. Withdrawal blocked for 72 hours.",
+      message:
+        "Password changed successfully. Withdrawal blocked for 72 hours.",
       success: true,
     });
-
   } catch (error) {
     // console.error("Change Password Error:", error);
     return res.status(500).json({
@@ -1289,8 +1280,7 @@ export const swapAmount = async (req, res) => {
           fromUser: user._id,
           amount: referralBonus,
           date: new Date(),
-          transferAmount: amount
-
+          transferAmount: amount,
         });
       }
     }
@@ -1318,14 +1308,13 @@ export const swapAmount = async (req, res) => {
   }
 };
 
-
 export const allIncomes = async (req, res) => {
   const userId = req.user._id;
 
   if (!userId) {
     return res.status(401).json({
       message: "User not Authorized",
-      success: false
+      success: false,
     });
   }
 
@@ -1343,18 +1332,28 @@ export const allIncomes = async (req, res) => {
       directReferralIncome.reduce((sum, income) => sum + income.amount, 0);
 
     const todayLevelIncome = levelIncome
-      .filter(income => new Date(income.date).setHours(0, 0, 0, 0) === today.getTime())
+      .filter(
+        (income) =>
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+      )
       .reduce((sum, income) => sum + income.amount, 0);
 
     const todayWithdrawalIncome = withdrawalIncome
-      .filter(income => new Date(income.date).setHours(0, 0, 0, 0) === today.getTime())
+      .filter(
+        (income) =>
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+      )
       .reduce((sum, income) => sum + income.amount, 0);
 
     const todayDirectReferralIncome = directReferralIncome
-      .filter(income => new Date(income.date).setHours(0, 0, 0, 0) === today.getTime())
+      .filter(
+        (income) =>
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+      )
       .reduce((sum, income) => sum + income.amount, 0);
 
-    const todayTotalIncome = todayLevelIncome + todayWithdrawalIncome + todayDirectReferralIncome;
+    const todayTotalIncome =
+      todayLevelIncome + todayWithdrawalIncome + todayDirectReferralIncome;
 
     return res.status(200).json({
       success: true,
@@ -1364,13 +1363,13 @@ export const allIncomes = async (req, res) => {
         todayLevelIncome,
         todayWithdrawalIncome,
         todayDirectReferralIncome,
-      }
+      },
     });
   } catch (error) {
     return res.status(500).json({
       message: "Error fetching income data",
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -1382,7 +1381,7 @@ export const withdrawalHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User is unauthorized",
-        success: false
+        success: false,
       });
     }
 
@@ -1392,19 +1391,19 @@ export const withdrawalHistory = async (req, res) => {
       return res.status(200).json({
         message: "No history found",
         success: false,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "Withdraw history fetched successfully",
       success: true,
-      data: history
+      data: history,
     });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in fetching withdrawal history",
-      success: false
+      success: false,
     });
   }
 };
@@ -1416,29 +1415,32 @@ export const depositHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User is unauthorized",
-        success: false
+        success: false,
       });
     }
 
-    const history = await Investment.find({ userId }).populate("userId", "username");
+    const history = await Investment.find({ userId }).populate(
+      "userId",
+      "username"
+    );
 
     if (history.length === 0) {
       return res.status(200).json({
         message: "No history found",
         success: false,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "Deposit history fetched successfully",
       success: true,
-      data: history
+      data: history,
     });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in fetching withdrawal history",
-      success: false
+      success: false,
     });
   }
 };
@@ -1450,29 +1452,31 @@ export const LevelIncomeHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User is unauthorized",
-        success: false
+        success: false,
       });
     }
 
-    const history = await Commission.find({ userId }).populate("userId", "username").populate("fromUserId", "username");
+    const history = await Commission.find({ userId })
+      .populate("userId", "username")
+      .populate("fromUserId", "username");
 
     if (history.length === 0) {
       return res.status(200).json({
         message: "No history found",
         success: false,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "LevelIncome history fetched successfully",
       success: true,
-      data: history
+      data: history,
     });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in fetching LevelIncome history",
-      success: false
+      success: false,
     });
   }
 };
@@ -1484,28 +1488,30 @@ export const ReferralIncomeHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User is unauthorized",
-        success: false
+        success: false,
       });
     }
 
-    const history = await ReferalBonus.find({ userId }).populate("userId", "username").populate("fromUser", "username");
+    const history = await ReferalBonus.find({ userId })
+      .populate("userId", "username")
+      .populate("fromUser", "username");
     if (history.length === 0) {
       return res.status(200).json({
         message: "No history found",
         success: false,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "Referral history fetched successfully",
       success: true,
-      data: history
+      data: history,
     });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in Referral history",
-      success: false
+      success: false,
     });
   }
 };
@@ -1517,30 +1523,32 @@ export const getAllFundTransferHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "Unauthorized",
-        success: false
+        success: false,
       });
     }
 
-    const history = await FundTransfer.find({ from: userId }).populate("to", "username");
+    const history = await FundTransfer.find({ from: userId }).populate(
+      "to",
+      "username"
+    );
 
     if (history.length === 0) {
       return res.status(200).json({
         message: "No fund transfer history found",
         success: true,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "Fund history fetched successfully",
       success: true,
-      data: history
+      data: history,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in getting fund transfer history",
-      success: false
+      success: false,
     });
   }
 };
@@ -1592,7 +1600,7 @@ export const verifyOtpForPassword = async (req, res) => {
     if (!otp || !email || !password) {
       return res.status(400).json({
         message: "OTP & Email are required",
-        success: false
+        success: false,
       });
     }
 
@@ -1600,23 +1608,21 @@ export const verifyOtpForPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         message: "User not found for this email",
-        success: false
+        success: false,
       });
     }
-
-
 
     if (!user.otp || !user.otpExpire || new Date() > user.otpExpire) {
       return res.status(400).json({
         message: "OTP expired or not valid",
-        success: false
+        success: false,
       });
     }
 
     if (user.otp !== otp) {
       return res.status(400).json({
         message: "Invalid OTP",
-        success: false
+        success: false,
       });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1628,13 +1634,12 @@ export const verifyOtpForPassword = async (req, res) => {
 
     return res.status(200).json({
       message: "OTP verified successfully and Password reset Successfully",
-      success: true
+      success: true,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error verifying OTP",
-      success: false
+      success: false,
     });
   }
 };
@@ -1660,14 +1665,8 @@ export const getMemeberAndTeamData = async (req, res) => {
       });
     }
 
-    const {
-      teamA,
-      teamB,
-      teamC,
-      teamD,
-      teamE,
-      totalTeamBC,
-    } = await calculateTeams(userId, startDate, endDate);
+    const { teamA, teamB, teamC, teamD, teamE, totalTeamBC } =
+      await calculateTeams(userId, startDate, endDate);
 
     return res.status(200).json({
       message: "Team Data fetched successfully",
@@ -1700,7 +1699,6 @@ export const getAllRebetHistoryForUser = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-
     const commissions = await Commission.find({ userId })
       .populate("fromUserId", "username name")
       .sort({ createdAt: -1 });
@@ -1712,27 +1710,27 @@ export const getAllRebetHistoryForUser = async (req, res) => {
       });
     }
 
-
     const result = {
       teamCommission: {
         teamA: 0,
         teamB: 0,
         teamC: 0,
         teamD: 0,
-        teamE: 0
+        teamE: 0,
       },
       teamMembers: {
         teamA: [],
         teamB: [],
         teamC: [],
         teamD: [],
-        teamE: []
-      }
+        teamE: [],
+      },
     };
 
     commissions.forEach((entry) => {
       const level = entry.level;
-      const name = entry.fromUserId?.name || entry.fromUserId?.username || "Unknown";
+      const name =
+        entry.fromUserId?.name || entry.fromUserId?.username || "Unknown";
       const amount = entry.commissionAmount;
 
       if (level === 1) {
@@ -1754,30 +1752,31 @@ export const getAllRebetHistoryForUser = async (req, res) => {
     });
 
     for (const key in result.teamCommission) {
-      result.teamCommission[key] = Number(result.teamCommission[key].toFixed(4));
+      result.teamCommission[key] = Number(
+        result.teamCommission[key].toFixed(4)
+      );
     }
 
     return res.status(200).json({
       success: true,
       message: "Team commission data fetched successfully",
-      data: result
+      data: result,
     });
-
   } catch (error) {
     console.error("Error fetching rebate history:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 export const sendOtpForMoneyTransfer = async (req, res) => {
   try {
-    const userId = req.user._id
+    const userId = req.user._id;
 
-    const user = await UserModel.findById(userId)
+    const user = await UserModel.findById(userId);
 
     if (!user) {
       return res.status(400).json({
@@ -1786,11 +1785,8 @@ export const sendOtpForMoneyTransfer = async (req, res) => {
       });
     }
 
-
-
-
     const username = user.username;
-    const email = user.email
+    const email = user.email;
 
     const otp = Math.floor(100000 + Math.random() * 900000);
 
@@ -1804,7 +1800,6 @@ export const sendOtpForMoneyTransfer = async (req, res) => {
       message: "OTP sent successfully",
       success: true,
     });
-
   } catch (error) {
     // console.error("Error sending OTP:", error);
     return res.status(500).json({
@@ -1835,7 +1830,6 @@ export const transferAmountToAnotherUser = async (req, res) => {
       });
     }
     const sender = await UserModel.findById(transferUserId);
-
 
     if (!sender) {
       return res.status(404).json({
@@ -1896,8 +1890,8 @@ export const transferAmountToAnotherUser = async (req, res) => {
       userId: receiver._id,
       investmentAmount: amount,
       investmentDate: Date.now(),
-      txResponse: await generateRandomTxResponse()
-    })
+      txResponse: await generateRandomTxResponse(),
+    });
 
     return res.status(200).json({
       message: "Amount transferred successfully",
@@ -1916,7 +1910,9 @@ export const sendInvitation = async (req, res) => {
     const { email, name } = req.body;
 
     if (!email || !name) {
-      return res.status(400).json({ success: false, message: "Email and name are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and name are required." });
     }
 
     const transporter = nodemailer.createTransport({
@@ -1926,7 +1922,7 @@ export const sendInvitation = async (req, res) => {
         pass: process.env.EMAIL_PASSWORD,
       },
     });
-    7
+    7;
     const mailOptions = {
       from: `"Zetta" <${process.env.EMAIL}>`,
       to: email,
@@ -1949,7 +1945,6 @@ export const sendInvitation = async (req, res) => {
       success: true,
       message: `Invitation sent successfully to ${email}`,
     });
-
   } catch (error) {
     // console.error("Error sending invitation:", error);
     return res.status(500).json({
@@ -1984,7 +1979,9 @@ export const reset2FAHandler = async (req, res) => {
     });
   } catch (error) {
     // console.error("Reset 2FA Error:", error);
-    return res.status(500).json({ success: false, error: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Internal Server Error" });
   }
 };
 
@@ -1993,65 +1990,63 @@ export const supportMessage = async (req, res) => {
     const { subject, message, description } = req.body;
 
     if (!subject || !message) {
-      return res.status(400).json({ success: false, message: "Subject and message are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Subject and message are required." });
     }
 
     const imageUrl = req.file?.path || "";
-    const image = await cloudinary.uploader.upload(imageUrl)
-
+    const image = await cloudinary.uploader.upload(imageUrl);
 
     const newSupport = await Support.create({
       userId: req.user._id,
       subject,
       message,
       description: description || "",
-      file: image.secure_url
+      file: image.secure_url,
     });
 
     res.status(201).json({
       success: true,
       message: "Support message submitted successfully.",
-      data: newSupport
+      data: newSupport,
     });
-
   } catch (error) {
     // console.error("Error in supportMessage:", error);
     res.status(500).json({
       success: false,
-      message: "Server error. Please try again later."
+      message: "Server error. Please try again later.",
     });
   }
 };
 
 export const getAllSuppoertMessages = async (req, res) => {
   try {
-    const userId = req.user._id
+    const userId = req.user._id;
     if (!userId) {
       return res.status(401).json({
-        message: "User not Authenticated"
-      })
+        message: "User not Authenticated",
+      });
     }
-    const history = await Support.find({ userId })
+    const history = await Support.find({ userId });
     if (!history || history.length === 0) {
       return res.status(200).json({
         message: "History not found",
-        success: false
-      })
+        success: false,
+      });
     }
     return res.status(200).json({
       message: "History fetched successfully",
       success: true,
-      data: history
-    })
-
+      data: history,
+    });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error in getting Support Messages",
-      success: false
-    })
-
+      success: false,
+    });
   }
-}
+};
 
 // export const AiAgentInvestInPlan = async (req, res) => {
 //   try {
@@ -2114,21 +2109,18 @@ export const setWalletAddress = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "Unauthorized",
-        success: false
+        success: false,
       });
     }
     const { walletAddress } = req.body;
-
-
 
     const user = await UserModel.findById(userId);
     if (!user) {
       return res.status(404).json({
         message: "User not found",
-        success: false
+        success: false,
       });
     }
-
 
     user.walletAddress = walletAddress;
     await user.save();
@@ -2137,12 +2129,11 @@ export const setWalletAddress = async (req, res) => {
       message: "Wallet address connected successfully",
       success: true,
     });
-
   } catch (error) {
     // console.error("Error updating wallet address:", error.message);
     return res.status(500).json({
       message: "Internal Server Error",
-      success: false
+      success: false,
     });
   }
 };
@@ -2216,7 +2207,6 @@ export const verifyOTPForWallet = async (email, otp) => {
     await user.save();
 
     return { success: true, message: "OTP verified successfully" };
-
   } catch (error) {
     // console.error("verifyOTPForWallet error:", error);
     return { success: false, message: "Internal Server Error" };
@@ -2258,7 +2248,10 @@ export const setBep20 = async (req, res) => {
       });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(loginPassword, user.password);
+    const isPasswordCorrect = await bcrypt.compare(
+      loginPassword,
+      user.password
+    );
     if (!isPasswordCorrect) {
       return res.status(400).json({
         success: false,
@@ -2282,7 +2275,6 @@ export const setBep20 = async (req, res) => {
       message: "BEP-20 wallet address changed successfully",
       bep20Address: user.bep20Address,
     });
-
   } catch (error) {
     // console.error("Error setting BEP-20 address:", error.message);
     return res.status(500).json({
@@ -2327,7 +2319,10 @@ export const setTrc20 = async (req, res) => {
       });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(loginPassword, user.password);
+    const isPasswordCorrect = await bcrypt.compare(
+      loginPassword,
+      user.password
+    );
     if (!isPasswordCorrect) {
       return res.status(400).json({
         success: false,
@@ -2350,7 +2345,6 @@ export const setTrc20 = async (req, res) => {
       success: true,
       message: "TRC-20 wallet address changed successfully",
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -2377,7 +2371,6 @@ export const getAllAiPlans = async (req, res) => {
       success: true,
       plans: allPlans,
     });
-
   } catch (error) {
     // console.error("Error in getAllAiPlans:", error.message);
     return res.status(500).json({
@@ -2412,7 +2405,6 @@ export const getAllAiPlansById = async (req, res) => {
       success: true,
       plans: allPlans,
     });
-
   } catch (error) {
     // console.error("Error in getAllAiPlans:", error.message);
     return res.status(500).json({
@@ -2420,7 +2412,7 @@ export const getAllAiPlansById = async (req, res) => {
       success: false,
     });
   }
-}
+};
 
 export const aiAgentInvestment = async (req, res) => {
   try {
@@ -2457,8 +2449,6 @@ export const aiAgentInvestment = async (req, res) => {
       });
     }
 
-
-
     if (user.additionalWallet < investedAmount) {
       return res.status(400).json({
         message: "Insufficient balance in additional wallet",
@@ -2474,7 +2464,10 @@ export const aiAgentInvestment = async (req, res) => {
       });
     }
 
-    if (investedAmount < plan.minInvestment || investedAmount > plan.maxInvestment) {
+    if (
+      investedAmount < plan.minInvestment ||
+      investedAmount > plan.maxInvestment
+    ) {
       return res.status(400).json({
         message: `Investment amount must be between ${plan.minInvestment} and ${plan.maxInvestment}`,
         success: false,
@@ -2493,7 +2486,9 @@ export const aiAgentInvestment = async (req, res) => {
 
     const maturityDate = new Date();
     maturityDate.setDate(maturityDate.getDate() + plan.durationInDays);
-    const expectedReturn = investedAmount + (investedAmount * plan.incomePercent / 100 * plan.durationInDays);
+    const expectedReturn =
+      investedAmount +
+      ((investedAmount * plan.incomePercent) / 100) * plan.durationInDays;
 
     const newInvestment = await AiAgentInvestment.create({
       userId,
@@ -2502,16 +2497,13 @@ export const aiAgentInvestment = async (req, res) => {
       maturityDate,
       expectedReturn,
     });
-    await distributeCommissionsForAiAgent(user, investedAmount)
-
+    await distributeCommissionsForAiAgent(user, investedAmount);
 
     return res.status(201).json({
       message: "Investment successful",
       success: true,
       investment: newInvestment,
     });
-
-
   } catch (error) {
     // console.error("Error in aiAgentInvestment:", error);
     return res.status(500).json({
@@ -2531,7 +2523,7 @@ export const getAiAgentInvestmentsForActive = async (req, res) => {
         success: false,
       });
     }
-    const plans = await AiAgentInvestment.find({ userId })
+    const plans = await AiAgentInvestment.find({ userId });
     if (plans.length === 0) {
       return res.status(404).json({
         message: "No AI agent investments found for this user",
@@ -2541,18 +2533,16 @@ export const getAiAgentInvestmentsForActive = async (req, res) => {
     return res.status(200).json({
       message: "AI agent investments fetched successfully",
       success: true,
-      data: plans
+      data: plans,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: "Error fetching AI agent investments",
       success: false,
       error: error.message,
     });
-
   }
-}
+};
 export const getTeamCount = async (req, res) => {
   const userId = req.user._id;
   if (!userId) {
@@ -2573,7 +2563,7 @@ export const getTeamCount = async (req, res) => {
         teamC: teamC.length,
         totalTeamBC,
         totalTeam: teamA.length + teamB.length + teamC.length,
-      }
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -2581,19 +2571,26 @@ export const getTeamCount = async (req, res) => {
       success: false,
     });
   }
-}
+};
 export const transferAiAgentToMainWallet = async (req, res) => {
   try {
     const userId = req.user._id;
 
     const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", success: false });
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
     }
 
     const aiTotalAmount = user.aiAgentTotal;
     if (aiTotalAmount <= 0) {
-      return res.status(400).json({ message: "You have already redeemed your amount", success: false });
+      return res
+        .status(400)
+        .json({
+          message: "You have already redeemed your amount",
+          success: false,
+        });
     }
 
     const deduction = aiTotalAmount * 0.05;
@@ -2617,7 +2614,9 @@ export const transferAiAgentToMainWallet = async (req, res) => {
     });
   } catch (error) {
     console.error("Transfer Error:", error);
-    return res.status(500).json({ message: "Internal Server Error", success: false });
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", success: false });
   }
 };
 export const getAiAgentInvestHistory = async (req, res) => {
@@ -2631,35 +2630,37 @@ export const getAiAgentInvestHistory = async (req, res) => {
       });
     }
 
-    const investments = await AiAgentInvestment.find({ userId }).populate("plan", "planName incomePercent durationInDays minInvestment maxInvestment");
+    const investments = await AiAgentInvestment.find({ userId }).populate(
+      "plan",
+      "planName incomePercent durationInDays minInvestment maxInvestment"
+    );
     if (!investments || investments.length === 0) {
       return res.status(404).json({
         message: "No AI agent investment history found for this user",
         success: false,
-        data: []
+        data: [],
       });
     }
     if (investments.length === 0) {
       return res.status(200).json({
         message: "No AI agent investment history found",
         success: false,
-        data: []
+        data: [],
       });
     }
 
     return res.status(200).json({
       message: "AI agent investment history fetched successfully",
       success: true,
-      data: investments
+      data: investments,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error fetching AI agent investment history",
-      success: false
+      success: false,
     });
   }
-}
+};
 export const getAllBanners = async (req, res) => {
   try {
     const adminId = req.user._id;
@@ -2737,7 +2738,7 @@ export const getAllTradeHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User not authenticated",
-        success: false
+        success: false,
       });
     }
 
@@ -2747,60 +2748,58 @@ export const getAllTradeHistory = async (req, res) => {
     if (!history || history.length === 0) {
       return res.status(404).json({
         message: "No trade history found",
-        success: false
+        success: false,
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Trade history fetched successfully",
-      data: history
+      data: history,
     });
   } catch (error) {
     console.error("Error fetching trade history:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
 
 export const getAllStakeInvestmentHistory = async (req, res) => {
-
-
   try {
     const userId = req.admin._id;
 
     if (!userId) {
       return res.status(401).json({
         message: "User not authenticated",
-        success: false
+        success: false,
       });
     }
 
-    const history = await AiAgentInvestment.find({}).sort({ createdAt: -1 }).populate("userId", "username name");
+    const history = await AiAgentInvestment.find({})
+      .sort({ createdAt: -1 })
+      .populate("userId", "username name");
 
     if (!history || history.length === 0) {
       return res.status(404).json({
         message: "No stake investment history found",
-        success: false
+        success: false,
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Stake investment history fetched successfully",
-      data: history
+      data: history,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error fetching stake investment history",
-      success: false
+      success: false,
     });
-
   }
-}
+};
 export const redeemLockAmount = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -2809,27 +2808,27 @@ export const redeemLockAmount = async (req, res) => {
     if (!historyId) {
       return res.status(400).json({
         message: "History ID is required",
-        success: false
+        success: false,
       });
     }
 
     const lockedEntry = await LockedAmountModel.findOne({
       _id: historyId,
       userId,
-      isUnlocked: true
+      isUnlocked: true,
     });
 
     if (!lockedEntry) {
       return res.status(404).json({
         message: "Locked amount entry not found or not eligible for redemption",
-        success: false
+        success: false,
       });
     }
 
     if (lockedEntry.isClaimed) {
       return res.status(400).json({
         message: "This amount has already been claimed",
-        success: false
+        success: false,
       });
     }
 
@@ -2837,7 +2836,7 @@ export const redeemLockAmount = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         message: "User not found",
-        success: false
+        success: false,
       });
     }
 
@@ -2851,13 +2850,12 @@ export const redeemLockAmount = async (req, res) => {
       success: true,
       message: "Amount redeemed successfully and sent to Main Wallet",
       redeemedAmount: lockedEntry.amount,
-      mainWalletBalance: user.mainWallet
+      mainWalletBalance: user.mainWallet,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error redeeming unlocked amount",
-      success: false
+      success: false,
     });
   }
 };
@@ -2868,30 +2866,30 @@ export const getAllLockedHistory = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         message: "User not authenticated",
-        success: false
+        success: false,
       });
     }
 
-    const history = await LockedAmountModel.find({ userId }).sort({ createdAt: -1 });
+    const history = await LockedAmountModel.find({ userId }).sort({
+      createdAt: -1,
+    });
 
     if (!history || history.length === 0) {
       return res.status(404).json({
         message: "No locked amount history found",
-        success: false
+        success: false,
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Locked amount history fetched successfully",
-      data: history
+      data: history,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error fetching locked amount history",
-      success: false
+      success: false,
     });
-
   }
-}
+};
