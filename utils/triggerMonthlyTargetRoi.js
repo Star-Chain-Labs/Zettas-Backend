@@ -249,7 +249,7 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       success: true,
       message: `✅ Trade successful! You earned $${tradeAmount.toFixed(
         2
-      )} today. Monthly target ${progressPercent}% completed.`,
+      )} today.`,
       tradeAmount: tradeAmount.toFixed(2),
       totalEarned: user.totalRoi,
       progressPercent,
