@@ -143,7 +143,6 @@ function generateFixedDailyRoi(
 
   if (remainingRoi <= 0) return 0;
 
-  // Fixed daily ROI = 10% / 30 days = 0.33% daily
   const dailyPercent = totalTargetPercent / 30;
   const dailyRoi = (investedAmount * dailyPercent) / 100;
 
@@ -159,7 +158,6 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    // Always use current additionalWallet (instant effect)
     const investedAmount = Number(user?.additionalWallet || 0);
     if (isNaN(investedAmount) || investedAmount <= 0) {
       return res
@@ -167,12 +165,10 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
         .json({ success: false, message: "Invalid investment amount." });
     }
 
-    // Monthly Filter Dates
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Check if today's ROI already claimed
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const existingTodayRoi = await Roi.findOne({
@@ -188,7 +184,6 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       });
     }
 
-    // Fetch this month's ROI records
     const tradeRecords = await Roi.find({
       userId,
       createdAt: { $gte: startOfMonth, $lte: endOfMonth },
@@ -200,21 +195,19 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     );
 
     const daysPassed = tradeRecords.length;
-    const totalTargetPercent = 10; // fixed 10% monthly target
+    const totalTargetPercent = 10;
 
-    // Generate today's ROI based on current additionalWallet
     const tradeAmount = generateFixedDailyRoi(
       totalEarnedRoi,
       investedAmount,
       totalTargetPercent
     );
 
-    // If target reached or nothing left
     if (isNaN(tradeAmount) || tradeAmount <= 0) {
       return res.status(200).json({
         success: false,
         message:
-          "Your monthly 10% target is already reached or balanced, so no trade today. Come back next month!",
+          "No trade executed today due to unfavorable market conditions. Please check back tomorrow for the next trade opportunity.",
         tradeStatus: "skipped",
       });
     }
