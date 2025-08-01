@@ -2585,12 +2585,10 @@ export const transferAiAgentToMainWallet = async (req, res) => {
 
     const aiTotalAmount = user.aiAgentTotal;
     if (aiTotalAmount <= 0) {
-      return res
-        .status(400)
-        .json({
-          message: "You have already redeemed your amount",
-          success: false,
-        });
+      return res.status(400).json({
+        message: "You have already redeemed your amount",
+        success: false,
+      });
     }
 
     const deduction = aiTotalAmount * 0.05;

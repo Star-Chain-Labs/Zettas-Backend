@@ -259,14 +259,12 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "All fields are required." });
     }
 
-    // 3. Wallet address validate
     if (!isAddress(userWalletAddress)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid wallet address." });
     }
 
-    // 4. Wallet types validate
     if (
       walletType !== "mainWallet" &&
       walletType !== "levelWallet" &&
@@ -277,7 +275,6 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Invalid wallet type specified." });
     }
 
-    // 5. Password check
     const isPasswordCorrect = await bcrypt.compare(
       loginPassword,
       user.password
@@ -288,14 +285,12 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Incorrect login password." });
     }
 
-    // 6. OTP validate
     if (user.otp !== otp || user.otpExpire < Date.now()) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired OTP." });
     }
 
-    // 7. Amount validate
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount < 10) {
       return res
@@ -305,7 +300,6 @@ export const processWithdrawal = async (req, res) => {
 
     // 8. Wallet specific logic
     if (walletType === "levelWallet") {
-      // 5 Active referred users check
       const activeUsers =
         user.referedUsers?.filter((u) => u.isVerified === true).length || 0;
       if (activeUsers < 5) {

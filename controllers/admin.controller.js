@@ -142,7 +142,7 @@ export const getProfile = async (req, res) => {
       data: user,
       success: true,
     });
-  } catch (error) { }
+  } catch (error) {}
 };
 export const getAllUsers = async (req, res) => {
   try {
@@ -424,7 +424,6 @@ export const getAllReferalBonusHistory = async (req, res) => {
         path: "fromUser",
         select: "username email name",
       },
-
     ]);
 
     if (!referalBonusHistory) {
@@ -486,7 +485,7 @@ export const getAllLevelIncomeHistory = async (req, res) => {
     if (!adminId) {
       return res.status(401).json({
         message: "Unauthorized",
-        success: false
+        success: false,
       });
     }
 
@@ -498,19 +497,21 @@ export const getAllLevelIncomeHistory = async (req, res) => {
       return res.status(200).json({
         message: "No Level Income History Found",
         data: [],
-        success: true
+        success: true,
       });
     }
 
     return res.status(200).json({
       message: "All Level Income History Fetched Successfully",
       success: true,
-      data: history
+      data: history,
     });
   } catch (error) {
     return res.status(500).json({
-      message: error.message || "Something went wrong while fetching level income history.",
-      success: false
+      message:
+        error.message ||
+        "Something went wrong while fetching level income history.",
+      success: false,
     });
   }
 };
@@ -737,7 +738,7 @@ export const changeReferralPercentage = async (req, res) => {
   try {
     const { percentage } = req.body;
 
-    if (typeof percentage !== 'number' || percentage < 0 || percentage > 100) {
+    if (typeof percentage !== "number" || percentage < 0 || percentage > 100) {
       return res.status(400).json({
         message: "Percentage must be a number between 0 and 100",
         success: false,
@@ -773,7 +774,7 @@ export const updateReferralAmount = async (req, res) => {
         success: false,
       });
     }
-    const oldPercentage = await DirectreferalPercentage.find({})
+    const oldPercentage = await DirectreferalPercentage.find({});
 
     const updatedPercent = await DirectreferalPercentage.findOneAndUpdate(
       {},
@@ -783,8 +784,8 @@ export const updateReferralAmount = async (req, res) => {
     await ReferralPercentageChangeModel.create({
       oldPercentage: oldPercentage.directReferralPercentage,
       newPercentage: percent,
-      date: Date.now()
-    })
+      date: Date.now(),
+    });
 
     if (!updatedPercent) {
       return res.status(404).json({
@@ -1329,7 +1330,7 @@ export const createAgentPlan = async (req, res) => {
       minInvestment,
       maxInvestment,
       aiAgentFee,
-      computingSkills
+      computingSkills,
     } = req.body;
 
     if (
@@ -1340,7 +1341,9 @@ export const createAgentPlan = async (req, res) => {
       !maxInvestment ||
       computingSkills === undefined
     ) {
-      return res.status(400).json({ success: false, message: "All fields are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required." });
     }
 
     const plan = await AIAgentPlan.create({
@@ -1383,7 +1386,7 @@ export const uploadBanner = async (req, res) => {
         success: false,
       });
     }
-    console.log(req.file)
+    console.log(req.file);
     const file = req.file.path;
     if (!file) {
       return res.status(400).json({
@@ -1391,7 +1394,7 @@ export const uploadBanner = async (req, res) => {
         success: false,
       });
     }
-    const fileurl = await cloudinary.uploader.upload(file)
+    const fileurl = await cloudinary.uploader.upload(file);
     const banner = await Banner.create({
       title,
       imageUrl: fileurl.secure_url,
@@ -1407,7 +1410,7 @@ export const uploadBanner = async (req, res) => {
       success: false,
     });
   }
-}
+};
 export const getAllBanners = async (req, res) => {
   try {
     const adminId = req.admin._id;
@@ -1419,7 +1422,7 @@ export const getAllBanners = async (req, res) => {
     }
 
     const banners = await Banner.find({});
-    console.log(banners)
+    console.log(banners);
     if (!banners) {
       return res.status(200).json({
         message: "No Banners Found",
@@ -1442,14 +1445,11 @@ export const unblockUserLogin = async (req, res) => {
   try {
     const { userId } = req.body;
 
-
     if (!userId) {
       return res.status(400).json({
         message: "Username is required",
       });
     }
-
-
 
     const user = await UserModel.findById(userId);
     if (!user) {
@@ -1461,8 +1461,6 @@ export const unblockUserLogin = async (req, res) => {
         message: "User is not blocked",
       });
     }
-
-
 
     user.isLoginBlocked = false;
     user.lastLoginDate = new Date();
@@ -1525,21 +1523,32 @@ export const blockUser = async (req, res) => {
     const { userId } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID is required" });
     }
 
     const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     user.isLoginBlocked = true;
     await user.save();
 
-    return res.status(200).json({ success: true, message: `User  ${user.username} blocked successfully ` });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: `User  ${user.username} blocked successfully `,
+      });
   } catch (error) {
     console.error("blockUser Error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 export const UnblockUser = async (req, res) => {
@@ -1547,21 +1556,29 @@ export const UnblockUser = async (req, res) => {
     const { userId } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID is required" });
     }
 
     const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     user.isLoginBlocked = false;
     await user.save();
 
-    return res.status(200).json({ success: true, message: "User has been Unblocked" });
+    return res
+      .status(200)
+      .json({ success: true, message: "User has been Unblocked" });
   } catch (error) {
     console.error("blockUser Error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 export const toggleIsWithdrawalBlock = async (req, res) => {
@@ -1588,11 +1605,11 @@ export const toggleIsWithdrawalBlock = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `User withdrawal has been ${user.isWithdrawalblock ? "blocked" : "unblocked"} successfully.`,
+      message: `User withdrawal has been ${
+        user.isWithdrawalblock ? "blocked" : "unblocked"
+      } successfully.`,
       iswithdrawalblock: user.isWithdrawalblock,
     });
-
-
   } catch (error) {
     console.error("toggleIsWithdrawalBlock Error:", error);
     return res.status(500).json({
@@ -1606,17 +1623,23 @@ export const adminTopUp = async (req, res) => {
     const { userId, amount } = req.body;
 
     if (!userId || !amount) {
-      return res.status(400).json({ success: false, message: "Missing userId or amount" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing userId or amount" });
     }
 
     const amountNumber = Number(amount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      return res.status(400).json({ success: false, message: "Amount must be a valid number" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Amount must be a valid number" });
     }
 
     const user = await UserModel.findOne({ referralCode: userId });
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     user.mainWallet += amountNumber;
@@ -1672,13 +1695,13 @@ export const adminTopUp = async (req, res) => {
       message: "User TopUp Successful ",
       success: true,
     });
-
   } catch (error) {
     console.error("adminTopUp Error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
-
 
 export const adminTopUpHistory = async (req, res) => {
   try {
@@ -1727,7 +1750,9 @@ export const incomeBlock = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `User income is now ${user.isIncomeBlocked ? "blocked" : "unblocked"}`,
+      message: `User income is now ${
+        user.isIncomeBlocked ? "blocked" : "unblocked"
+      }`,
       isIncomeBlocked: user.isIncomeBlocked,
     });
   } catch (error) {
@@ -1750,7 +1775,9 @@ export const adminUpdateUser = async (req, res) => {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     return res.status(200).json({
@@ -1760,6 +1787,8 @@ export const adminUpdateUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in admin update:", error.message);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
