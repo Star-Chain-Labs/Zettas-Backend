@@ -322,24 +322,24 @@ export const processWithdrawal = async (req, res) => {
 
     if (walletType === "tradeWallet") {
       // Month end check
-      const today = new Date();
-      const lastDayOfMonth = new Date(
-        today.getFullYear(),
-        today.getMonth() + 1,
-        0
-      ).getDate();
-      if (today.getDate() !== lastDayOfMonth) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Withdrawals from Trade Wallet are only allowed on the last day of the month.",
-        });
-      }
+      // const today = new Date();
+      // const lastDayOfMonth = new Date(
+      //   today.getFullYear(),
+      //   today.getMonth() + 1,
+      //   0
+      // ).getDate();
+      // if (today.getDate() !== lastDayOfMonth) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message:
+      //       "Withdrawals from Trade Wallet are only allowed on the last day of the month.",
+      //   });
+      // }
 
       if (user.totalRoi < numericAmount) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient Trade Wallet (ROI) balance.",
+          message: "Insufficient Trade Wallet balance.",
         });
       }
 
