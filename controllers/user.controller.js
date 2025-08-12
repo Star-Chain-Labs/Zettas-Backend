@@ -1657,6 +1657,7 @@ export const getMemeberAndTeamData = async (req, res) => {
       });
     }
 
+    // All direct sponsored users
     const allUsers = await UserModel.find({ sponsorId: userId });
     if (!allUsers || !allUsers.length) {
       return res.status(200).json({
@@ -1665,6 +1666,22 @@ export const getMemeberAndTeamData = async (req, res) => {
       });
     }
 
+    // Active users (isVerified = true)
+    const activeUsers = allUsers.filter((u) => u.isVerified);
+
+    // ======== Today registered users =========
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayRegisteredUsers = await UserModel.find({
+      sponsorId: userId,
+      createdAt: { $gte: todayStart, $lte: todayEnd },
+    });
+
+    // ======== Team Calculation =========
     const { teamA, teamB, teamC, teamD, teamE, totalTeamBC } =
       await calculateTeams(userId, startDate, endDate);
 
@@ -1672,6 +1689,8 @@ export const getMemeberAndTeamData = async (req, res) => {
       message: "Team Data fetched successfully",
       success: true,
       data: {
+        activeUsers: activeUsers.length,
+        todayRegisteredUsers: todayRegisteredUsers.length,
         teamA: teamA.length,
         teamB: teamB.length,
         teamC: teamC.length,
@@ -1692,6 +1711,86 @@ export const getMemeberAndTeamData = async (req, res) => {
   }
 };
 
+// export const getAllRebetHistoryForUser = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     if (!userId) {
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+//     }
+
+//     const commissions = await Commission.find({ userId })
+//       .populate("fromUserId", "username name")
+//       .sort({ createdAt: -1 });
+
+//     if (commissions.length === 0) {
+//       return res.status(200).json({
+//         message: "No commission history found",
+//         success: false,
+//       });
+//     }
+
+//     const result = {
+//       teamCommission: {
+//         teamA: 0,
+//         teamB: 0,
+//         teamC: 0,
+//         teamD: 0,
+//         teamE: 0,
+//       },
+//       teamMembers: {
+//         teamA: [],
+//         teamB: [],
+//         teamC: [],
+//         teamD: [],
+//         teamE: [],
+//       },
+//     };
+
+//     commissions.forEach((entry) => {
+//       const level = entry.level;
+//       const name =
+//         entry.fromUserId?.name || entry.fromUserId?.username || "Unknown";
+//       const amount = entry.commissionAmount;
+
+//       if (level === 1) {
+//         result.teamCommission.teamA += amount;
+//         result.teamMembers.teamA.push({ name, amount });
+//       } else if (level === 2) {
+//         result.teamCommission.teamB += amount;
+//         result.teamMembers.teamB.push({ name, amount });
+//       } else if (level === 3) {
+//         result.teamCommission.teamC += amount;
+//         result.teamMembers.teamC.push({ name, amount });
+//       } else if (level === 4) {
+//         result.teamCommission.teamD += amount;
+//         result.teamMembers.teamD.push({ name, amount });
+//       } else if (level === 5) {
+//         result.teamCommission.teamE += amount;
+//         result.teamMembers.teamE.push({ name, amount });
+//       }
+//     });
+
+//     for (const key in result.teamCommission) {
+//       result.teamCommission[key] = Number(
+//         result.teamCommission[key].toFixed(4)
+//       );
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Team commission data fetched successfully",
+//       data: result,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching rebate history:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const getAllRebetHistoryForUser = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -1709,6 +1808,12 @@ export const getAllRebetHistoryForUser = async (req, res) => {
         success: false,
       });
     }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    let totalLevelIncome = 0;
+    let todayLevelIncome = 0;
 
     const result = {
       teamCommission: {
@@ -1731,8 +1836,17 @@ export const getAllRebetHistoryForUser = async (req, res) => {
       const level = entry.level;
       const name =
         entry.fromUserId?.name || entry.fromUserId?.username || "Unknown";
-      const amount = entry.commissionAmount;
+      const amount = entry.commissionAmount || 0;
 
+      // Total income
+      totalLevelIncome += amount;
+
+      // Today's income
+      if (new Date(entry.createdAt) >= todayStart) {
+        todayLevelIncome += amount;
+      }
+
+      // Assign to respective team
       if (level === 1) {
         result.teamCommission.teamA += amount;
         result.teamMembers.teamA.push({ name, amount });
@@ -1751,6 +1865,7 @@ export const getAllRebetHistoryForUser = async (req, res) => {
       }
     });
 
+    // Format values
     for (const key in result.teamCommission) {
       result.teamCommission[key] = Number(
         result.teamCommission[key].toFixed(4)
@@ -1760,7 +1875,13 @@ export const getAllRebetHistoryForUser = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Team commission data fetched successfully",
-      data: result,
+      data: {
+        ...result,
+        levelIncome: {
+          today: Number(todayLevelIncome.toFixed(4)),
+          total: Number(totalLevelIncome.toFixed(4)),
+        },
+      },
     });
   } catch (error) {
     console.error("Error fetching rebate history:", error);
