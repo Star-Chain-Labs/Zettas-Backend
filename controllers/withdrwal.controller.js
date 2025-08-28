@@ -301,7 +301,7 @@ export const processWithdrawal = async (req, res) => {
     // 8. Wallet specific logic
     if (walletType === "levelWallet") {
       const activeUsers =
-        user.referedUsers?.filter((u) => u.totalInvestment > 0).length || 0;
+        user.referedUsers?.filter((u) => u.additionalWallet > 0).length || 0;
       if (activeUsers < 5) {
         return res.status(400).json({
           success: false,
