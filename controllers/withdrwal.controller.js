@@ -311,19 +311,18 @@ export const processWithdrawal = async (req, res) => {
     //   }
 
     if (walletType === "levelWallet") {
-  const activeUsers =
-    user.referedUsers?.filter(
-      (u) => (u.mainWallet > 0) || (u.additionalWallet > 0)
-    ).length || 0;
+   const activeUsers =
+        user.referedUsers?.filter(
+          (u) => u.mainWallet > 0 || u.additionalWallet > 0
+        ).length || 0;
 
-  if (activeUsers < 5) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "You need at least 5 active referred users to withdraw from Level Wallet.",
-    });
-  }
-}
+      if (activeUsers < 5) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You need at least 5 active referred users to withdraw from Level Wallet.",
+        });
+      }
 
 
       if (user.levelIncome < numericAmount) {
