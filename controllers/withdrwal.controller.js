@@ -229,7 +229,7 @@ export const processWithdrawal = async (req, res) => {
 
   try {
     // 1. User validate
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId).populate("referedUsers");
     if (!user) {
       return res
         .status(404)
