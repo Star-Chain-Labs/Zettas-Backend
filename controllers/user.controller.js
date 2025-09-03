@@ -2960,6 +2960,7 @@ export const redeemLockAmount = async (req, res) => {
     }
 
     user.mainWallet += lockedEntry.amount;
+    user.additionalWallet -= lockedEntry.amount;
     await user.save();
 
     lockedEntry.isClaimed = true;
