@@ -40,7 +40,7 @@ export const sendInvestmentConfirmationEmail = async (email, name, amount, date)
         </p>
 
         <div style="margin-top: 30px;">
-          <a href="https://Zetta.us/dashboard" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">📊 Go to Dashboard</a>
+          <a href="https://zettas.tech/dashboard" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">📊 Go to Dashboard</a>
         </div>
 
         <p style="margin-top: 40px; font-size: 14px; color: #777;">If you have any questions, feel free to contact us at <a href="mailto:support@yourcompany.com">support@yourcompany.com</a>.</p>
