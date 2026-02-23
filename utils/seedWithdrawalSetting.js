@@ -7,6 +7,7 @@ const MONGO_URI =
 
 const seed = async () => {
   try {
+    // DB connect
     await mongoose.connect(MONGO_URI, {
       maxPoolSize: 10,
     });
