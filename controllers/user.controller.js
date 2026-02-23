@@ -27,6 +27,8 @@ import { sendInvestmentConfirmationEmail } from "../utils/sendInvestmentEmail.js
 import Roi from "../models/roi.model.js";
 import StakeModel from "../models/stake.model.js";
 import { LockedAmountModel } from "../models/lockamount.model.js";
+import Promocode from "../models/promocode.model.js";
+import mongoose from "mongoose";
 
 // const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 
@@ -390,7 +392,7 @@ export const verifyOTP = async (req, res) => {
 
     const encodedPassword = jwt.sign(
       { password: rawPassword },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
     );
 
     user.isVerified = true;
@@ -490,7 +492,7 @@ export const updateProfile = async (req, res) => {
     const newUser = await UserModel.findByIdAndUpdate(
       user._id,
       { username: username, phone, name },
-      { new: true }
+      { new: true },
     );
     return res.status(200).json({
       success: true,
@@ -560,7 +562,7 @@ export const investment = async (req, res) => {
       user.email,
       user.name,
       investmentAmount,
-      investment.investmentDate
+      investment.investmentDate,
     );
 
     return res.status(201).json({
@@ -659,7 +661,7 @@ export const getUsersCountByLevel = async (req, res) => {
     for (let level = 1; level <= 10; level++) {
       const users = await UserModel.find(
         { _id: { $in: currentLevelUsers } },
-        { referedUsers: 1 }
+        { referedUsers: 1 },
       );
 
       let nextLevelUserIds = [];
@@ -683,7 +685,7 @@ export const getUsersCountByLevel = async (req, res) => {
           referralCode: 1,
           walletAddress: 1,
           totalInvestment: 1,
-        }
+        },
       );
 
       levelCounts.push({
@@ -710,9 +712,8 @@ export const getProfile = async (req, res) => {
   try {
     const user = req.user;
     const userId = user._id;
-    const userProfile = await UserModel.findById(userId).populate(
-      "referedUsers"
-    );
+    const userProfile =
+      await UserModel.findById(userId).populate("referedUsers");
     if (!user) {
       return res
         .status(404)
@@ -1185,13 +1186,147 @@ export const changePassword = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    // console.error("Change Password Error:", error);
     return res.status(500).json({
       message: "Server Error",
       success: false,
     });
   }
 };
+
+// export const swapAmount = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+
+//     if (!userId) {
+//       return res.status(401).json({
+//         message: "Unauthorized",
+//         success: false,
+//       });
+//     }
+
+//     let { amount, walletType, BonusAmount } = req.body;
+
+//     if (!amount || !walletType) {
+//       return res.status(400).json({
+//         message: "Amount and walletType are required",
+//         success: false,
+//       });
+//     }
+
+//     amount = Number(amount);
+//     if (isNaN(amount) || amount <= 0) {
+//       return res.status(400).json({
+//         message: "Invalid amount",
+//         success: false,
+//       });
+//     }
+
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         success: false,
+//       });
+//     }
+
+//     if (walletType !== "main-to-additional") {
+//       return res.status(400).json({
+//         message: "Invalid walletType. Only 'main-to-additional' is allowed.",
+//         success: false,
+//       });
+//     }
+
+//     const fromBalance = Number(user.mainWallet);
+//     const toBalance = Number(user.additionalWallet);
+
+//     if (fromBalance < amount) {
+//       return res.status(400).json({
+//         message: "Insufficient balance in Main Wallet",
+//         success: false,
+//       });
+//     }
+
+//     // Deduct from mainWallet and add to additionalWallet
+//     user.mainWallet = fromBalance - amount;
+//     user.additionalWallet = toBalance + amount;
+//     user.lockAmount += amount;
+
+//     await user.save();
+
+//     // ➤ Referral Bonus Logic
+//     if (user.sponsorId) {
+//       const parentUser = await UserModel.findById(user.sponsorId);
+//       const percentData = await DirectreferalPercentage.findOne();
+//       const percent = Number(percentData?.directReferralPercentage || 0);
+
+//       if (
+//         parentUser &&
+//         !parentUser.isIncomeBlocked &&
+//         !isNaN(percent) &&
+//         percent > 0
+//       ) {
+//         const referralBonus = (amount * percent) / 100;
+
+//         parentUser.directReferalAmount += referralBonus;
+//         parentUser.mainWallet += referralBonus;
+//         parentUser.totalEarnings += referralBonus;
+//         parentUser.currentEarnings += referralBonus;
+//         parentUser.aiCredits += 1;
+
+//         await parentUser.save();
+
+//         await ReferalBonus.create({
+//           userId: parentUser._id,
+//           fromUser: user._id,
+//           amount: referralBonus,
+//           date: new Date(),
+//           transferAmount: amount,
+//         });
+//       }
+//     }
+
+//     const bonusAmt = Number(BonusAmount || 0);
+
+//     let lockedDate = new Date();
+
+//     if (bonusAmt > 0) {
+//       lockedDate = new Date();
+//       lockedDate.setMonth(lockedDate.getMonth() + 5);
+//     } else {
+//       lockedDate = new Date();
+//       lockedDate.setMonth(lockedDate.getMonth() + 2);
+//     }
+
+//     await LockedAmountModel.create({
+//       userId: user._id,
+//       amount: Number(amount) + bonusAmt,
+//       bonusAmount: bonusAmt,
+//       lockedAt: lockedDate,
+//       isClaimed: false,
+//       isUnlocked: false,
+//     });
+//     await LockedAmountModel.create({
+//       userId: user._id,
+//       amount: Number(amount) + Number(BonusAmount),
+//       bonusAmount: BonusAmount,
+//       lockedAt: new Date(),
+//       isClaimed: false,
+//       isUnlocked: false,
+//     });
+//     return res.status(200).json({
+//       success: true,
+//       message: `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
+//       mainWallet: user.mainWallet,
+//       additionalWallet: user.additionalWallet,
+//     });
+//   } catch (error) {
+//     console.error("Swap Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
 export const swapAmount = async (req, res) => {
   try {
@@ -1204,19 +1339,38 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    let { amount, walletType } = req.body;
+    let { amount, walletType, BonusAmount } = req.body;
 
-    if (!amount || !walletType) {
+    // ✅ required fields
+    if (amount === undefined || amount === null || !walletType) {
       return res.status(400).json({
         message: "Amount and walletType are required",
         success: false,
       });
     }
 
+    // ✅ parse numbers safely
     amount = Number(amount);
-    if (isNaN(amount) || amount <= 0) {
+    const bonusAmt = Number(BonusAmount || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
         message: "Invalid amount",
+        success: false,
+      });
+    }
+
+    if (!Number.isFinite(bonusAmt) || bonusAmt < 0) {
+      return res.status(400).json({
+        message: "Invalid BonusAmount",
+        success: false,
+      });
+    }
+
+    // ✅ only allowed direction
+    if (walletType !== "main-to-additional") {
+      return res.status(400).json({
+        message: "Invalid walletType. Only 'main-to-additional' is allowed.",
         success: false,
       });
     }
@@ -1229,15 +1383,8 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    if (walletType !== "main-to-additional") {
-      return res.status(400).json({
-        message: "Invalid walletType. Only 'main-to-additional' is allowed.",
-        success: false,
-      });
-    }
-
-    const fromBalance = Number(user.mainWallet);
-    const toBalance = Number(user.additionalWallet);
+    const fromBalance = Number(user.mainWallet || 0);
+    const toBalance = Number(user.additionalWallet || 0);
 
     if (fromBalance < amount) {
       return res.status(400).json({
@@ -1246,35 +1393,32 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    // Deduct from mainWallet and add to additionalWallet
     user.mainWallet = fromBalance - amount;
-    user.additionalWallet = toBalance + amount;
-    user.lockAmount += amount;
-
+    user.additionalWallet = toBalance + amount + bonusAmt;
+    user.lockAmount = Number(user.lockAmount || 0) + amount;
     await user.save();
-
-    // ➤ Referral Bonus Logic
     if (user.sponsorId) {
       const parentUser = await UserModel.findById(user.sponsorId);
       const percentData = await DirectreferalPercentage.findOne();
       const percent = Number(percentData?.directReferralPercentage || 0);
-
       if (
         parentUser &&
         !parentUser.isIncomeBlocked &&
-        !isNaN(percent) &&
+        Number.isFinite(percent) &&
         percent > 0
       ) {
         const referralBonus = (amount * percent) / 100;
 
-        parentUser.directReferalAmount += referralBonus;
-        parentUser.mainWallet += referralBonus;
-        parentUser.totalEarnings += referralBonus;
-        parentUser.currentEarnings += referralBonus;
-        parentUser.aiCredits += 1;
-
+        parentUser.directReferalAmount =
+          Number(parentUser.directReferalAmount || 0) + referralBonus;
+        parentUser.mainWallet =
+          Number(parentUser.mainWallet || 0) + referralBonus;
+        parentUser.totalEarnings =
+          Number(parentUser.totalEarnings || 0) + referralBonus;
+        parentUser.currentEarnings =
+          Number(parentUser.currentEarnings || 0) + referralBonus;
+        parentUser.aiCredits = Number(parentUser.aiCredits || 0) + 1;
         await parentUser.save();
-
         await ReferalBonus.create({
           userId: parentUser._id,
           fromUser: user._id,
@@ -1284,20 +1428,21 @@ export const swapAmount = async (req, res) => {
         });
       }
     }
-
     await LockedAmountModel.create({
       userId: user._id,
-      amount,
+      amount: amount + bonusAmt,
+      bonusAmount: bonusAmt,
       lockedAt: new Date(),
       isClaimed: false,
       isUnlocked: false,
+      isBonus: bonusAmt > 0,
     });
-
     return res.status(200).json({
       success: true,
-      message: `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
-      mainWallet: user.mainWallet,
-      additionalWallet: user.additionalWallet,
+      message:
+        bonusAmt > 0
+          ? `Swapped $${amount}. Bonus $${bonusAmt} applied and locked for 5 months.`
+          : `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
     });
   } catch (error) {
     console.error("Swap Error:", error);
@@ -1307,7 +1452,6 @@ export const swapAmount = async (req, res) => {
     });
   }
 };
-
 export const allIncomes = async (req, res) => {
   const userId = req.user._id;
 
@@ -1317,7 +1461,6 @@ export const allIncomes = async (req, res) => {
       success: false,
     });
   }
-
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1334,21 +1477,21 @@ export const allIncomes = async (req, res) => {
     const todayLevelIncome = levelIncome
       .filter(
         (income) =>
-          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime(),
       )
       .reduce((sum, income) => sum + income.amount, 0);
 
     const todayWithdrawalIncome = withdrawalIncome
       .filter(
         (income) =>
-          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime(),
       )
       .reduce((sum, income) => sum + income.amount, 0);
 
     const todayDirectReferralIncome = directReferralIncome
       .filter(
         (income) =>
-          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime()
+          new Date(income.date).setHours(0, 0, 0, 0) === today.getTime(),
       )
       .reduce((sum, income) => sum + income.amount, 0);
 
@@ -1384,7 +1527,6 @@ export const withdrawalHistory = async (req, res) => {
         success: false,
       });
     }
-
     const history = await Withdrawal.find({ userId });
 
     if (history.length === 0) {
@@ -1421,7 +1563,7 @@ export const depositHistory = async (req, res) => {
 
     const history = await Investment.find({ userId }).populate(
       "userId",
-      "username"
+      "username",
     );
 
     if (history.length === 0) {
@@ -1529,7 +1671,7 @@ export const getAllFundTransferHistory = async (req, res) => {
 
     const history = await FundTransfer.find({ from: userId }).populate(
       "to",
-      "username"
+      "username",
     );
 
     if (history.length === 0) {
@@ -1868,7 +2010,7 @@ export const getAllRebetHistoryForUser = async (req, res) => {
     // Format values
     for (const key in result.teamCommission) {
       result.teamCommission[key] = Number(
-        result.teamCommission[key].toFixed(4)
+        result.teamCommission[key].toFixed(4),
       );
     }
 
@@ -2371,7 +2513,7 @@ export const setBep20 = async (req, res) => {
 
     const isPasswordCorrect = await bcrypt.compare(
       loginPassword,
-      user.password
+      user.password,
     );
     if (!isPasswordCorrect) {
       return res.status(400).json({
@@ -2442,7 +2584,7 @@ export const setTrc20 = async (req, res) => {
 
     const isPasswordCorrect = await bcrypt.compare(
       loginPassword,
-      user.password
+      user.password,
     );
     if (!isPasswordCorrect) {
       return res.status(400).json({
@@ -2722,7 +2864,7 @@ export const transferAiAgentToMainWallet = async (req, res) => {
 
     await AiAgentInvestment.updateMany(
       { userId, isMatured: true, isRedeemed: false },
-      { $set: { isRedeemed: true, isActive: false } }
+      { $set: { isRedeemed: true, isActive: false } },
     );
 
     return res.status(200).json({
@@ -2751,7 +2893,7 @@ export const getAiAgentInvestHistory = async (req, res) => {
 
     const investments = await AiAgentInvestment.find({ userId }).populate(
       "plan",
-      "planName incomePercent durationInDays minInvestment maxInvestment"
+      "planName incomePercent durationInDays minInvestment maxInvestment",
     );
     if (!investments || investments.length === 0) {
       return res.status(404).json({
@@ -2919,66 +3061,166 @@ export const getAllStakeInvestmentHistory = async (req, res) => {
     });
   }
 };
+// export const redeemLockAmount = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+
+//     const { historyId } = req.body;
+//     if (!historyId) {
+//       return res.status(400).json({
+//         message: "History ID is required",
+//         success: false,
+//       });
+//     }
+
+//     const lockedEntry = await LockedAmountModel.findOne({
+//       _id: historyId,
+//       userId,
+//       isUnlocked: true,
+//     });
+
+//     if (!lockedEntry) {
+//       return res.status(404).json({
+//         message: "Locked amount entry not found or not eligible for redemption",
+//         success: false,
+//       });
+//     }
+
+//     if (lockedEntry.isClaimed) {
+//       return res.status(400).json({
+//         message: "This amount has already been claimed",
+//         success: false,
+//       });
+//     }
+
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         success: false,
+//       });
+//     }
+
+//     user.mainWallet += lockedEntry.amount;
+//     user.additionalWallet -= lockedEntry.amount;
+//     await user.save();
+
+//     lockedEntry.isClaimed = true;
+//     await lockedEntry.save();
+//     return res.status(200).json({
+//       success: true,
+//       message: "Amount redeemed successfully and sent to Main Wallet",
+//       redeemedAmount: lockedEntry.amount,
+//       mainWalletBalance: user.mainWallet,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       message: error.message || "Error redeeming unlocked amount",
+//       success: false,
+//     });
+//   }
+// };
+
 export const redeemLockAmount = async (req, res) => {
-  try {
-    const userId = req.user._id;
+  const userId = req.user?._id;
+  const { historyId } = req.body;
 
-    const { historyId } = req.body;
-    if (!historyId) {
-      return res.status(400).json({
-        message: "History ID is required",
-        success: false,
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
 
-    const lockedEntry = await LockedAmountModel.findOne({
-      _id: historyId,
-      userId,
-      isUnlocked: true,
+  if (!historyId) {
+    return res.status(400).json({
+      success: false,
+      message: "History ID is required",
     });
+  }
 
-    if (!lockedEntry) {
-      return res.status(404).json({
-        message: "Locked amount entry not found or not eligible for redemption",
-        success: false,
-      });
-    }
+  const session = await mongoose.startSession();
 
-    if (lockedEntry.isClaimed) {
-      return res.status(400).json({
-        message: "This amount has already been claimed",
-        success: false,
-      });
-    }
+  try {
+    let payload;
 
-    const user = await UserModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-        success: false,
-      });
-    }
+    await session.withTransaction(async () => {
+      // 1) Claim entry atomically (prevents double claim)
+      const lockedEntry = await LockedAmountModel.findOneAndUpdate(
+        {
+          _id: historyId,
+          userId,
+          status: "released",
+          isUnlocked: true,
+          isClaimed: { $ne: true },
+        },
+        { $set: { isClaimed: true, claimedAt: new Date() } },
+        { new: true, session },
+      );
 
-    user.mainWallet += lockedEntry.amount;
-    user.additionalWallet -= lockedEntry.amount;
-    await user.save();
+      if (!lockedEntry) throw new Error("ENTRY_NOT_ELIGIBLE");
 
-    lockedEntry.isClaimed = true;
-    await lockedEntry.save();
+      const amount = Number(lockedEntry.amount || 0);
+
+      // bonus amount field fallback
+      const bonusPart = Number(
+        lockedEntry.bonusAmount ??
+          lockedEntry.BonusAmount ??
+          lockedEntry.bonus ??
+          0,
+      );
+
+      // ✅ mainWallet gets net (bonus minus)
+      const netToMain = lockedEntry.isBonus
+        ? Math.max(amount - bonusPart, 0)
+        : Math.max(amount, 0);
+
+      // ✅ additionalWallet ALWAYS deduct full amount
+      const fullDeduct = Math.max(amount, 0);
+
+      // 2) Update wallets safely (no negative additionalWallet)
+      const user = await UserModel.findOneAndUpdate(
+        {
+          _id: userId,
+          additionalWallet: { $gte: fullDeduct },
+        },
+        {
+          $inc: {
+            mainWallet: netToMain,
+            additionalWallet: -fullDeduct,
+          },
+        },
+        { new: true, session },
+      );
+
+      if (!user) throw new Error("INSUFFICIENT_ADDITIONAL_WALLET");
+    });
 
     return res.status(200).json({
       success: true,
       message: "Amount redeemed successfully and sent to Main Wallet",
-      redeemedAmount: lockedEntry.amount,
-      mainWalletBalance: user.mainWallet,
     });
   } catch (error) {
+    if (error.message === "ENTRY_NOT_ELIGIBLE") {
+      return res.status(404).json({
+        success: false,
+        message: "Entry not found / not unlocked / already claimed",
+      });
+    }
+
+    if (error.message === "INSUFFICIENT_ADDITIONAL_WALLET") {
+      return res.status(400).json({
+        success: false,
+        message: "Additional wallet balance is low for this claim",
+      });
+    }
+
     return res.status(500).json({
-      message: error.message || "Error redeeming unlocked amount",
       success: false,
+      message: error.message || "Error redeeming lock amount",
     });
+  } finally {
+    session.endSession();
   }
 };
+
 export const getAllLockedHistory = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -3009,6 +3251,44 @@ export const getAllLockedHistory = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Error fetching locked amount history",
+      success: false,
+    });
+  }
+};
+
+export const checkPromocodeVlidOrNot = async (req, res) => {
+  try {
+    const { promocode } = req.body;
+
+    if (!promocode) {
+      return res.status(400).json({
+        message: "Promocode is required",
+        success: false,
+      });
+    }
+    const code = await Promocode.findOne({ code: promocode });
+    if (!code) {
+      return res.status(404).json({
+        message: "Invalid promocode",
+        success: false,
+      });
+    }
+
+    // if (code.expiresAt < new Date()) {
+    //   return res.status(400).json({
+    //     message: "Promocode has expired",
+    //     success: false,
+    //   });
+    // }
+
+    return res.status(200).json({
+      message: "Promocode is valid",
+      success: true,
+      data: code,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Error validating promocode",
       success: false,
     });
   }

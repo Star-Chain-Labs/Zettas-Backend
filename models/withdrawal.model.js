@@ -34,7 +34,7 @@ const withdrawalSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "processing"],
       default: "pending",
       required: true,
     },
@@ -49,7 +49,7 @@ const withdrawalSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Withdrawal = mongoose.model("Withdrawal", withdrawalSchema);

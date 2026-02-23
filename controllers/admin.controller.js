@@ -26,6 +26,8 @@ import Banner from "../models/banner.model.js";
 import { WithdrawalUsdt } from "../utils/withdrawUSDT.js";
 import { generateRandomTxResponse } from "../utils/Random.js";
 import AdminTopUp from "../models/adminTopUp.model.js";
+import WithdrawalSetting from "../models/withdrawalconfig.model.js";
+import Promocode from "../models/promocode.model.js";
 
 export const adminRegister = async (req, res) => {
   try {
@@ -256,14 +258,14 @@ export const getAllIncomes = async (req, res) => {
     const investments = await Investment.find({});
     const totalInvestment = investments.reduce(
       (sum, inv) => sum + inv.investmentAmount,
-      0
+      0,
     );
     const todayInvestments = await Investment.find({
       investmentDate: { $gte: todayStart, $lte: todayEnd },
     });
     const todayInvestment = todayInvestments.reduce(
       (sum, inv) => sum + inv.investmentAmount,
-      0
+      0,
     );
 
     const rois = await Aroi.find({});
@@ -277,14 +279,14 @@ export const getAllIncomes = async (req, res) => {
     const referrals = await ReferalBonus.find({});
     const totalDirectReferral = referrals.reduce(
       (sum, ref) => sum + ref.amount,
-      0
+      0,
     );
     const todayReferrals = await ReferalBonus.find({
       date: { $gte: todayStart, $lte: todayEnd },
     });
     const todayDirectReferral = todayReferrals.reduce(
       (sum, ref) => sum + ref.amount,
-      0
+      0,
     );
 
     const withdrawals = await Withdrawal.find({});
@@ -294,14 +296,14 @@ export const getAllIncomes = async (req, res) => {
     });
     const todayWithdrawal = todayWithdrawals.reduce(
       (sum, w) => sum + w.amount,
-      0
+      0,
     );
 
     // ✅ Total and Today's Level Income
     const levelIncomes = await Commission.find({});
     const totalLevelIncome = levelIncomes.reduce(
       (sum, lvl) => sum + lvl.amount,
-      0
+      0,
     );
 
     const todayLevelIncomes = await Commission.find({
@@ -309,7 +311,7 @@ export const getAllIncomes = async (req, res) => {
     });
     const todayLevelIncome = todayLevelIncomes.reduce(
       (sum, lvl) => sum + lvl.amount,
-      0
+      0,
     );
 
     return res.status(200).json({
@@ -748,7 +750,7 @@ export const changeReferralPercentage = async (req, res) => {
     const percent = await DirectreferalPercentage.findOneAndUpdate(
       {},
       { directReferralPercentage: percentage },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     res.status(201).json({
@@ -779,7 +781,7 @@ export const updateReferralAmount = async (req, res) => {
     const updatedPercent = await DirectreferalPercentage.findOneAndUpdate(
       {},
       { directReferralPercentage: percent },
-      { new: true }
+      { new: true },
     );
     await ReferralPercentageChangeModel.create({
       oldPercentage: oldPercentage.directReferralPercentage,
@@ -1040,7 +1042,7 @@ export const updateLevelCommission = async (req, res) => {
     const updated = await LevelPercentage.findOneAndUpdate(
       { level: levelParam },
       { $set: updateFields },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) {
@@ -1110,7 +1112,7 @@ export const updateLevelRequirement = async (req, res) => {
     const updatedRequirement = await LevelRequirementSchema.findOneAndUpdate(
       { level },
       { level, invest, aiCredits, activeA, activeBC, timelineDays },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     res.status(200).json({
@@ -1130,7 +1132,7 @@ export const upsertWithdrawalLimit = async (req, res) => {
     const updated = await WithdrawalLimit.findOneAndUpdate(
       { level },
       { singleWithdrawalLimit, perMonthWithdrawalCount },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
     res.status(200).json({
@@ -1305,7 +1307,7 @@ export const changeDepositAmount = async (req, res) => {
     const updatedDeposit = await DepositModel.findOneAndUpdate(
       {},
       { amount },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     return res.status(200).json({
@@ -1538,12 +1540,10 @@ export const blockUser = async (req, res) => {
     user.isLoginBlocked = true;
     await user.save();
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: `User  ${user.username} blocked successfully `,
-      });
+    return res.status(200).json({
+      success: true,
+      message: `User  ${user.username} blocked successfully `,
+    });
   } catch (error) {
     console.error("blockUser Error:", error);
     return res
@@ -1771,7 +1771,7 @@ export const adminUpdateUser = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       { name, email, phone },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
@@ -1790,5 +1790,174 @@ export const adminUpdateUser = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const upsertWithdrawalSetting = async (req, res) => {
+  try {
+    const body = req.body?.payload ? req.body.payload : req.body;
+    if (!body || typeof body !== "object") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid payload" });
+    }
+
+    // ---- internal helpers (compact) ----
+    const toNum = (v, def) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : def;
+    };
+
+    const sanitizeRule = (rule = {}) => {
+      const enabled = typeof rule.enabled === "boolean" ? rule.enabled : true;
+
+      const minAmount = toNum(rule.minAmount, 10);
+      const maxAmount = toNum(rule.maxAmount, 100000);
+
+      const dailyMaxCount = toNum(rule.dailyMaxCount, 1);
+      const dailyMaxAmount = toNum(rule.dailyMaxAmount, 100000);
+
+      const allowedDaysOfMonth = Array.isArray(rule.allowedDaysOfMonth)
+        ? rule.allowedDaysOfMonth
+            .map((x) => Number(x))
+            .filter((x) => Number.isInteger(x) && x >= 1 && x <= 31)
+        : [];
+
+      const disabledMessage =
+        typeof rule.disabledMessage === "string" && rule.disabledMessage.trim()
+          ? rule.disabledMessage.trim()
+          : "Withdrawals are temporarily unavailable for this wallet.";
+
+      // basic validations
+      if (minAmount < 0) throw new Error("minAmount must be >= 0");
+      if (maxAmount < minAmount)
+        throw new Error("maxAmount must be >= minAmount");
+      if (dailyMaxCount < 0) throw new Error("dailyMaxCount must be >= 0");
+      if (dailyMaxAmount < 0) throw new Error("dailyMaxAmount must be >= 0");
+
+      return {
+        enabled,
+        minAmount,
+        maxAmount,
+        dailyMaxCount,
+        dailyMaxAmount,
+        disabledMessage,
+        allowedDaysOfMonth,
+      };
+    };
+
+    // ensure one settings doc exists
+    let doc = await WithdrawalSetting.findOne();
+    if (!doc) doc = await WithdrawalSetting.create({});
+
+    // ✅ CASE A: Full payload (your UI sends this)
+    const isFullPayload =
+      body.tradeWallet || body.mainWallet || body.levelWallet;
+
+    if (isFullPayload && !body.walletType) {
+      const payload = {
+        tradeWallet: sanitizeRule(body.tradeWallet || {}),
+        mainWallet: sanitizeRule(body.mainWallet || {}),
+        levelWallet: sanitizeRule(body.levelWallet || {}),
+      };
+
+      const updated = await WithdrawalSetting.findOneAndUpdate(
+        {},
+        { $set: payload },
+        { new: true, upsert: true, runValidators: true },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Withdrawal settings updated (full).",
+        data: updated,
+      });
+    }
+
+    // ✅ CASE B: Single wallet update (walletType + updates)
+    const { walletType, updates } = body;
+
+    if (!["tradeWallet", "mainWallet", "levelWallet"].includes(walletType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Send full payload OR { walletType, updates }. walletType must be tradeWallet/mainWallet/levelWallet.",
+      });
+    }
+
+    if (!updates || typeof updates !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "updates object is required",
+      });
+    }
+
+    const existing = doc[walletType]?.toObject?.() || doc[walletType] || {};
+    const merged = { ...existing, ...updates };
+    const sanitized = sanitizeRule(merged);
+
+    const updated = await WithdrawalSetting.findOneAndUpdate(
+      {},
+      { $set: { [walletType]: sanitized } },
+      { new: true, upsert: true, runValidators: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `${walletType} updated successfully`,
+      data: updated,
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+export const getWithdrawalSettings = async (req, res) => {
+  try {
+    const settings = await WithdrawalSetting.find();
+
+    res.status(200).json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    console.error("Error in getWithdrawalSettings:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const createPromoCode = async (req, res) => {
+  try {
+    const { code, discountPercentage, redemptionsCount } = req.body;
+
+    const newPromoCode = new Promocode({
+      code,
+      discountType: "percentage",
+      discountValue: discountPercentage,
+      redemptionsCount,
+    });
+
+    await newPromoCode.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Promo code created successfully",
+      data: newPromoCode,
+    });
+  } catch (error) {
+    console.error("Error in createPromoCode:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+export const getAllPromoCodes = async (req, res) => {
+  try {
+    const promoCodes = await Promocode.find();
+
+    res.status(200).json({
+      success: true,
+      data: promoCodes,
+    });
+  } catch (error) {
+    console.error("Error in getAllPromoCodes:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 };

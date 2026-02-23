@@ -1,30 +1,46 @@
 import { LockedAmountModel } from "../models/lockamount.model.js";
-import UserModel from "../models/user.model.js";
 
 export const processUnlockedAmounts = async () => {
-    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  try {
+    const now = Date.now();
 
-    try {
-        const unlockedAmounts = await LockedAmountModel.find({
-            status: "locked",
-            lockedAt: { $lte: sixtyDaysAgo }
-        });
+    const normalCutoff = new Date(now - 60 * 24 * 60 * 60 * 1000);
+    const bonusCutoff = new Date(now - 150 * 24 * 60 * 60 * 1000);
 
-        for (let entry of unlockedAmounts) {
-            const user = await UserModel.findById(entry.userId);
+    const [normalResult, bonusResult] = await Promise.all([
+      LockedAmountModel.updateMany(
+        {
+          status: "locked",
+          isUnlocked: { $ne: true },
+          isBonus: { $ne: true },
+          lockedAt: { $lte: normalCutoff },
+        },
+        {
+          $set: {
+            isUnlocked: true,
+            status: "released",
+            unlockedAt: new Date(),
+          },
+        },
+      ),
 
-            if (!user) continue;
-
-            await user.save();
-
-            entry.status = "released";
-            entry.isUnlocked = true;
-            await entry.save();
-
-        }
-
-    } catch (err) {
-        console.error("Error in processUnlockedAmounts:", err);
-    }
+      LockedAmountModel.updateMany(
+        {
+          status: "locked",
+          isUnlocked: { $ne: true },
+          isBonus: true,
+          lockedAt: { $lte: bonusCutoff },
+        },
+        {
+          $set: {
+            isUnlocked: true,
+            status: "released",
+            unlockedAt: new Date(),
+          },
+        },
+      ),
+    ]);
+  } catch (err) {
+    console.error("❌ Error in processUnlockedAmounts:", err);
+  }
 };
-

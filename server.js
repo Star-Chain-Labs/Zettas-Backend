@@ -16,7 +16,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
 app.use(helmet());
-
 app.use(
   cors({
     origin: [
@@ -30,21 +29,17 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     optionsSuccessStatus: 200,
-  })
+  }),
 );
-
 app.use("/api/users", UserRouter);
 app.use("/api/admin", AdminRouter);
-
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: {
     origin: "*",
     credentials: true,
   },
 });
-
 io.on("connection", (socket) => {
   socket.on("joinTicket", async (ticketId) => {
     const ticket = await Support.findById(ticketId);
@@ -69,7 +64,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {});
 });
-
 connectToDB()
   .then(() => {
     import("./utils/cronJobs.js");
