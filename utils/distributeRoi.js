@@ -21,7 +21,7 @@ export const distributeRoi = async () => {
         continue;
       }
 
-      const totalInvestmentAmount = user.mainWallet
+      const totalInvestmentAmount = user.mainWallet;
       // investments.reduce(
       //   (sum, inv) => sum + inv.investmentAmount,
       //   0
@@ -44,7 +44,7 @@ export const distributeRoi = async () => {
           totalInvestmentAmount >= level.minInvestment &&
           totalInvestmentAmount <= level.maxInvestment &&
           teamACount >= level.teamA &&
-          teamBAndCCount >= level.teamBAndC
+          teamBAndCCount >= level.teamBAndC,
       );
 
       // console.log("✅ Eligible ROI Levels:", eligibleLevels.length);
@@ -78,7 +78,6 @@ export const distributeRoi = async () => {
       }
 
       await user.save();
-      // console.log("✅ User saved.");
 
       await distributeCommissions(user, dailyRoi);
       // console.log("💰 Commissions distributed.\n");

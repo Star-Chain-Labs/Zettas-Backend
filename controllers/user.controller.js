@@ -29,6 +29,7 @@ import StakeModel from "../models/stake.model.js";
 import { LockedAmountModel } from "../models/lockamount.model.js";
 import Promocode from "../models/promocode.model.js";
 import mongoose from "mongoose";
+import PromoUsage from "../models/PromoUsage.model.js";
 
 // const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 
@@ -1339,9 +1340,8 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    let { amount, walletType, BonusAmount } = req.body;
+    let { amount, walletType, BonusAmount, code } = req.body;
 
-    // ✅ required fields
     if (amount === undefined || amount === null || !walletType) {
       return res.status(400).json({
         message: "Amount and walletType are required",
@@ -1349,7 +1349,6 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    // ✅ parse numbers safely
     amount = Number(amount);
     const bonusAmt = Number(BonusAmount || 0);
 
@@ -1394,6 +1393,7 @@ export const swapAmount = async (req, res) => {
     }
 
     user.mainWallet = fromBalance - amount;
+    user.bonusAmount = Number(user.bonusAmount || 0) + bonusAmt;
     user.additionalWallet = toBalance + amount + bonusAmt;
     user.lockAmount = Number(user.lockAmount || 0) + amount;
     await user.save();
@@ -1437,6 +1437,12 @@ export const swapAmount = async (req, res) => {
       isUnlocked: false,
       isBonus: bonusAmt > 0,
     });
+
+    await PromoUsage.create({
+      userId: user._id,
+      promocode: code,
+    });
+
     return res.status(200).json({
       success: true,
       message:
@@ -1560,7 +1566,6 @@ export const depositHistory = async (req, res) => {
         success: false,
       });
     }
-
     const history = await Investment.find({ userId }).populate(
       "userId",
       "username",
@@ -1633,7 +1638,6 @@ export const ReferralIncomeHistory = async (req, res) => {
         success: false,
       });
     }
-
     const history = await ReferalBonus.find({ userId })
       .populate("userId", "username")
       .populate("fromUser", "username");
@@ -3160,12 +3164,7 @@ export const redeemLockAmount = async (req, res) => {
       const amount = Number(lockedEntry.amount || 0);
 
       // bonus amount field fallback
-      const bonusPart = Number(
-        lockedEntry.bonusAmount ??
-          lockedEntry.BonusAmount ??
-          lockedEntry.bonus ??
-          0,
-      );
+      const bonusPart = Number(lockedEntry.bonusAmount ?? 0);
 
       // ✅ mainWallet gets net (bonus minus)
       const netToMain = lockedEntry.isBonus
@@ -3184,6 +3183,7 @@ export const redeemLockAmount = async (req, res) => {
         {
           $inc: {
             mainWallet: netToMain,
+            bonusAmount: lockedEntry.isBonus ? -bonusPart : 0,
             additionalWallet: -fullDeduct,
           },
         },
@@ -3266,6 +3266,19 @@ export const checkPromocodeVlidOrNot = async (req, res) => {
         success: false,
       });
     }
+
+    const alreadyUsed = await PromoUsage.findOne({
+      userId: req.user._id,
+      promocode,
+    });
+
+    if (alreadyUsed) {
+      return res.status(400).json({
+        message: "You have already used this promocode",
+        success: false,
+      });
+    }
+
     const code = await Promocode.findOne({ code: promocode });
     if (!code) {
       return res.status(404).json({
@@ -3273,13 +3286,6 @@ export const checkPromocodeVlidOrNot = async (req, res) => {
         success: false,
       });
     }
-
-    // if (code.expiresAt < new Date()) {
-    //   return res.status(400).json({
-    //     message: "Promocode has expired",
-    //     success: false,
-    //   });
-    // }
 
     return res.status(200).json({
       message: "Promocode is valid",

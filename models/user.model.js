@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    bonusAmount: {
+      type: Number,
+      default: 0,
+    },
 
     additionalWallet: {
       type: Number,
@@ -255,7 +259,7 @@ const userSchema = new mongoose.Schema(
     // }
   },
 
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const UserModel = mongoose.model("UserModel", userSchema);

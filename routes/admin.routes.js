@@ -42,6 +42,7 @@ import {
   createPromoCode,
   getAllPromoCodes,
   upsertWithdrawalSetting,
+  deletePromoCode,
 } from "../controllers/admin.controller.js";
 import { isAdminAuthenticated } from "../middlewares/adminMiddleware.js";
 import {
@@ -161,5 +162,8 @@ router
 router
   .route("/get-all-promo-codes")
   .get(isAdminAuthenticated, getAllPromoCodes);
+router
+  .route("/delete-promo-code/:id")
+  .delete(isAdminAuthenticated, deletePromoCode);
 
 export default router;

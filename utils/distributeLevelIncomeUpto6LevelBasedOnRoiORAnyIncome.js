@@ -21,7 +21,6 @@ export const distributeCommissions = async (user, roiAmount) => {
       ? { A: rateDoc.A, B: rateDoc.B, C: rateDoc.C, D: rateDoc.D || 0 }
       : { A: 0, B: 0, C: 0, D: 0 };
 
-
     const uplineChain = [];
     let current = user;
     for (let i = 0; i < 4; i++) {

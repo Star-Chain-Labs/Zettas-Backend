@@ -22,7 +22,7 @@ function generateRandomRoiTillTarget(
   currentTotalRoi,
   investedAmount,
   totalTargetPercent,
-  remainingDays
+  remainingDays,
 ) {
   const maxTarget = (investedAmount * totalTargetPercent) / 100;
   const remainingRoi = maxTarget - currentTotalRoi;
@@ -46,8 +46,8 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
-
     const investedAmount = Number(user?.additionalWallet || 0);
+    const bonusAmount = Number(user?.bonusAmount || 0);
     if (isNaN(investedAmount) || investedAmount <= 0) {
       return res
         .status(400)
@@ -57,10 +57,26 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     // Monthly filter
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    const getIndiaStartOfDay = () => {
+      const indiaStr = new Date().toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      });
+      const d = new Date(indiaStr);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
 
-    // Check today's ROI already claimed
-    const today = new Date();
+    const today = getIndiaStartOfDay();
     today.setHours(0, 0, 0, 0);
     const existingTodayRoi = await Roi.findOne({
       userId,
@@ -83,7 +99,7 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
 
     const totalEarnedRoi = tradeRecords.reduce(
       (sum, r) => sum + (r.roiAmount || 0),
-      0
+      0,
     );
     const daysPassed = tradeRecords.length;
     const totalDays = 30;
@@ -94,10 +110,17 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       totalEarnedRoi,
       investedAmount,
       totalTargetPercent,
-      totalDays - daysPassed
+      totalDays - daysPassed,
+    );
+    console.log(
+      `Generated trade amount: ${tradeAmount}, Total Earned ROI: ${totalEarnedRoi}, Days Passed: ${daysPassed}`,
     );
 
-    // If target complete or no ROI
+    const bonusRatio = investedAmount > 0 ? bonusAmount / investedAmount : 0;
+    const safeBonusRatio = Math.max(0, Math.min(1, bonusRatio));
+
+    const bonusProfit = tradeAmount * safeBonusRatio;
+    const finalProfitToDistribute = Math.max(0, tradeAmount - bonusProfit);
     if (isNaN(tradeAmount) || tradeAmount <= 0) {
       return res.status(200).json({
         success: false,
@@ -133,7 +156,10 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     await user.save();
 
     // Distribute commissions
-    await distributeCommissions4Level(user, tradeAmount);
+    console.log(
+      `Distributing commissions for profit: ${finalProfitToDistribute}`,
+    );
+    await distributeCommissions4Level(user, finalProfitToDistribute);
 
     // Progress percentage
     const monthlyTarget = (investedAmount * totalTargetPercent) / 100;
@@ -143,7 +169,7 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `✅ Trade successful! You earned $${tradeAmount.toFixed(
-        2
+        2,
       )} today. Monthly target ${progressPercent}% completed.`,
       tradeAmount: tradeAmount.toFixed(2),
       totalEarned: user.totalRoi,

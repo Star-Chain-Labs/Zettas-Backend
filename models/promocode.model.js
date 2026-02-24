@@ -11,7 +11,6 @@ const promocodeSchema = new mongoose.Schema(
     discountValue: { type: Number, required: true },
     maxRedemptions: { type: Number, default: 1 },
     redemptionsCount: { type: Number, default: 0 },
-    expiresAt: { type: Date, required: true },
   },
   { timestamps: true },
 );
