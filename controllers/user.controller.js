@@ -3299,3 +3299,26 @@ export const checkPromocodeVlidOrNot = async (req, res) => {
     });
   }
 };
+
+export const getPromocode = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+      return res.status(401).json({
+        message: "User not authenticated",
+        success: false,
+      });
+    }
+    const promocodes = await Promocode.find({}).sort({ createdAt: -1 });
+    return res.status(200).json({
+      success: true,
+      message: "Promocodes fetched successfully",
+      data: promocodes,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Error fetching promocodes",
+    });
+  }
+};

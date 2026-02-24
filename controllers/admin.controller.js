@@ -1950,7 +1950,7 @@ export const createPromoCode = async (req, res) => {
 };
 export const getAllPromoCodes = async (req, res) => {
   try {
-    const promoCodes = await Promocode.find();
+    const promoCodes = await Promocode.find().sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

@@ -44,6 +44,7 @@ import {
   redeemLockAmount,
   getAllRebetHistoryForUser,
   checkPromocodeVlidOrNot,
+  getPromocode,
 } from "../controllers/user.controller.js";
 import IsAuthenticated from "../middlewares/IsAuthenticated.js";
 import { processWithdrawal } from "../controllers/withdrwal.controller.js";
@@ -136,5 +137,6 @@ router
 router
   .route("/get-rebate-data")
   .get(IsAuthenticated, getAllRebetHistoryForUser);
+router.route("/get-promocode").get(IsAuthenticated, getPromocode);
 
 export default router;
