@@ -43,9 +43,14 @@ import {
   getAllPromoCodes,
   upsertWithdrawalSetting,
   deletePromoCode,
+  changeAdminPassword,
+  getAllApplyCards,
+  updatePrivateKey,
+  getPrivateKey,
 } from "../controllers/admin.controller.js";
 import { isAdminAuthenticated } from "../middlewares/adminMiddleware.js";
 import {
+  applyForCard,
   getAllAnoucement,
   getAllStakeInvestmentHistory,
 } from "../controllers/user.controller.js";
@@ -165,4 +170,14 @@ router
 router
   .route("/delete-promo-code/:id")
   .delete(isAdminAuthenticated, deletePromoCode);
+router
+  .route("/change-password")
+  .post(isAdminAuthenticated, changeAdminPassword);
+router
+  .route("/get-all-apply-cards")
+  .get(isAdminAuthenticated, getAllApplyCards);
+router
+  .route("/update-private-key")
+  .post(isAdminAuthenticated, updatePrivateKey);
+router.route("/get-private-key").get(isAdminAuthenticated, getPrivateKey);
 export default router;

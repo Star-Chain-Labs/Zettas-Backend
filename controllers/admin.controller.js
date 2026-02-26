@@ -28,6 +28,7 @@ import { generateRandomTxResponse } from "../utils/Random.js";
 import AdminTopUp from "../models/adminTopUp.model.js";
 import WithdrawalSetting from "../models/withdrawalconfig.model.js";
 import Promocode from "../models/promocode.model.js";
+import CardApplication from "../models/CardApplication.model.js";
 
 export const adminRegister = async (req, res) => {
   try {
@@ -289,7 +290,7 @@ export const getAllIncomes = async (req, res) => {
       0,
     );
 
-    const withdrawals = await Withdrawal.find({});
+    const withdrawals = await Withdrawal.find({ status: "approved" });
     const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
     const todayWithdrawals = await Withdrawal.find({
       createdAt: { $gte: todayStart, $lte: todayEnd },
@@ -1793,20 +1794,231 @@ export const adminUpdateUser = async (req, res) => {
   }
 };
 
+// export const upsertWithdrawalSetting = async (req, res) => {
+//   try {
+//     const body = req.body?.payload ? req.body.payload : req.body;
+//     if (!body || typeof body !== "object") {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid payload" });
+//     }
+
+//     // ---- internal helpers (compact) ----
+//     const toNum = (v, def) => {
+//       const n = Number(v);
+//       return Number.isFinite(n) ? n : def;
+//     };
+
+//     const sanitizeRule = (rule = {}) => {
+//       const enabled = typeof rule.enabled === "boolean" ? rule.enabled : true;
+
+//       const minAmount = toNum(rule.minAmount, 10);
+//       const maxAmount = toNum(rule.maxAmount, 100000);
+
+//       const dailyMaxCount = toNum(rule.dailyMaxCount, 1);
+//       const dailyMaxAmount = toNum(rule.dailyMaxAmount, 100000);
+
+//       const allowedDaysOfMonth = Array.isArray(rule.allowedDaysOfMonth)
+//         ? rule.allowedDaysOfMonth
+//             .map((x) => Number(x))
+//             .filter((x) => Number.isInteger(x) && x >= 1 && x <= 31)
+//         : [];
+
+//       const disabledMessage =
+//         typeof rule.disabledMessage === "string" && rule.disabledMessage.trim()
+//           ? rule.disabledMessage.trim()
+//           : "Withdrawals are temporarily unavailable for this wallet.";
+
+//       // basic validations
+//       if (minAmount < 0) throw new Error("minAmount must be >= 0");
+//       if (maxAmount < minAmount)
+//         throw new Error("maxAmount must be >= minAmount");
+//       if (dailyMaxCount < 0) throw new Error("dailyMaxCount must be >= 0");
+//       if (dailyMaxAmount < 0) throw new Error("dailyMaxAmount must be >= 0");
+
+//       return {
+//         enabled,
+//         minAmount,
+//         maxAmount,
+//         dailyMaxCount,
+//         dailyMaxAmount,
+//         disabledMessage,
+//         allowedDaysOfMonth,
+//       };
+//     };
+
+//     // ensure one settings doc exists
+//     let doc = await WithdrawalSetting.findOne();
+//     if (!doc) doc = await WithdrawalSetting.create({});
+
+//     // ✅ CASE A: Full payload (your UI sends this)
+//     const isFullPayload =
+//       body.tradeWallet || body.mainWallet || body.levelWallet;
+
+//     if (isFullPayload && !body.walletType) {
+//       const payload = {
+//         tradeWallet: sanitizeRule(body.tradeWallet || {}),
+//         mainWallet: sanitizeRule(body.mainWallet || {}),
+//         levelWallet: sanitizeRule(body.levelWallet || {}),
+//       };
+
+//       const updated = await WithdrawalSetting.findOneAndUpdate(
+//         {},
+//         { $set: payload },
+//         { new: true, upsert: true, runValidators: true },
+//       );
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Withdrawal settings updated (full).",
+//         data: updated,
+//       });
+//     }
+
+//     // ✅ CASE B: Single wallet update (walletType + updates)
+//     const { walletType, updates } = body;
+
+//     if (!["tradeWallet", "mainWallet", "levelWallet"].includes(walletType)) {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           "Send full payload OR { walletType, updates }. walletType must be tradeWallet/mainWallet/levelWallet.",
+//       });
+//     }
+
+//     if (!updates || typeof updates !== "object") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "updates object is required",
+//       });
+//     }
+
+//     const existing = doc[walletType]?.toObject?.() || doc[walletType] || {};
+//     const merged = { ...existing, ...updates };
+//     const sanitized = sanitizeRule(merged);
+
+//     const updated = await WithdrawalSetting.findOneAndUpdate(
+//       {},
+//       { $set: { [walletType]: sanitized } },
+//       { new: true, upsert: true, runValidators: true },
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `${walletType} updated successfully`,
+//       data: updated,
+//     });
+//   } catch (e) {
+//     return res.status(400).json({ success: false, message: e.message });
+//   }
+// };
+
 export const upsertWithdrawalSetting = async (req, res) => {
   try {
-    const body = req.body?.payload ? req.body.payload : req.body;
-    if (!body || typeof body !== "object") {
+    const body0 = req.body?.payload ? req.body.payload : req.body;
+    console.log("Received payload:", body0);
+    if (!body0 || typeof body0 !== "object") {
       return res
         .status(400)
         .json({ success: false, message: "Invalid payload" });
     }
 
-    // ---- internal helpers (compact) ----
+    // ✅ clone so we can safely mutate
+    const body = { ...body0 };
+
+    // ---------------- helpers ----------------
     const toNum = (v, def) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : def;
     };
+
+    const uniqNums = (arr) => Array.from(new Set(arr));
+
+    const isISODate = (s) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").slice(0, 10));
+
+    const sanitizeAllowedDateRanges = (ranges) => {
+      if (!Array.isArray(ranges)) return [];
+
+      const cleaned = ranges
+        .map((r) => {
+          const from = String(r?.from || "").slice(0, 10);
+          const to = String(r?.to || "").slice(0, 10);
+          if (!isISODate(from) || !isISODate(to)) return null;
+
+          // normalize (from <= to)
+          const a = from <= to ? from : to;
+          const b = from <= to ? to : from;
+          return { from: a, to: b };
+        })
+        .filter(Boolean);
+
+      // merge overlapping/contiguous ranges (optional but good)
+      cleaned.sort((a, b) => a.from.localeCompare(b.from));
+
+      const merged = [];
+      for (const r of cleaned) {
+        const last = merged[merged.length - 1];
+        if (!last) {
+          merged.push(r);
+          continue;
+        }
+        // if r starts before or on last.to, merge
+        if (r.from <= last.to) {
+          last.to = last.to >= r.to ? last.to : r.to;
+        } else {
+          merged.push(r);
+        }
+      }
+
+      return merged;
+    };
+
+    // ✅ normalize root-level leaked rule fields into tradeWallet
+    // (because UI mistakenly sends allowedDateRanges etc at root)
+    const RULE_KEYS = [
+      "enabled",
+      "minAmount",
+      "maxAmount",
+      "dailyMaxCount",
+      "dailyMaxAmount",
+      "disabledMessage",
+      "allowedDaysOfMonth",
+      "allowedDayRanges",
+      "allowedDateRanges",
+      "from",
+      "to",
+    ];
+
+    const rootRuleLike = RULE_KEYS.some((k) => body[k] !== undefined);
+
+    // If payload is full (has trade/main/level) and also has rootRuleLike,
+    // we attach those root fields into tradeWallet by default (as per your example).
+    if (
+      !body.walletType &&
+      (body.tradeWallet || body.mainWallet || body.levelWallet) &&
+      rootRuleLike
+    ) {
+      body.tradeWallet = { ...(body.tradeWallet || {}) };
+
+      // move root fields to tradeWallet
+      for (const k of RULE_KEYS) {
+        if (body[k] !== undefined) {
+          // special: from/to -> allowedDateRanges
+          if ((k === "from" || k === "to") && (body.from || body.to)) continue;
+          body.tradeWallet[k] = body[k];
+          delete body[k];
+        }
+      }
+
+      // also convert root from/to if present
+      if (body0.from && body0.to) {
+        body.tradeWallet.allowedDateRanges = body.tradeWallet
+          .allowedDateRanges || [{ from: body0.from, to: body0.to }];
+        delete body.from;
+        delete body.to;
+      }
+    }
 
     const sanitizeRule = (rule = {}) => {
       const enabled = typeof rule.enabled === "boolean" ? rule.enabled : true;
@@ -1818,17 +2030,46 @@ export const upsertWithdrawalSetting = async (req, res) => {
       const dailyMaxAmount = toNum(rule.dailyMaxAmount, 100000);
 
       const allowedDaysOfMonth = Array.isArray(rule.allowedDaysOfMonth)
-        ? rule.allowedDaysOfMonth
-            .map((x) => Number(x))
-            .filter((x) => Number.isInteger(x) && x >= 1 && x <= 31)
+        ? uniqNums(
+            rule.allowedDaysOfMonth
+              .map((x) => Number(x))
+              .filter((x) => Number.isInteger(x) && x >= 1 && x <= 31),
+          )
         : [];
+
+      // (optional) day-of-month ranges support (kept)
+      const allowedDayRanges = Array.isArray(rule.allowedDayRanges)
+        ? rule.allowedDayRanges
+            .map((r) => {
+              const from = Number(r?.from);
+              const to = Number(r?.to);
+              if (!Number.isInteger(from) || !Number.isInteger(to)) return null;
+              if (from < 1 || from > 31 || to < 1 || to > 31) return null;
+              return { from: Math.min(from, to), to: Math.max(from, to) };
+            })
+            .filter(Boolean)
+        : [];
+
+      // ✅ NEW: date ranges support
+      // also accept {from,to} directly (UI old payload)
+      let allowedDateRanges = sanitizeAllowedDateRanges(rule.allowedDateRanges);
+
+      if (
+        (!allowedDateRanges || allowedDateRanges.length === 0) &&
+        rule.from &&
+        rule.to
+      ) {
+        allowedDateRanges = sanitizeAllowedDateRanges([
+          { from: rule.from, to: rule.to },
+        ]);
+      }
 
       const disabledMessage =
         typeof rule.disabledMessage === "string" && rule.disabledMessage.trim()
           ? rule.disabledMessage.trim()
           : "Withdrawals are temporarily unavailable for this wallet.";
 
-      // basic validations
+      // validations
       if (minAmount < 0) throw new Error("minAmount must be >= 0");
       if (maxAmount < minAmount)
         throw new Error("maxAmount must be >= minAmount");
@@ -1843,6 +2084,8 @@ export const upsertWithdrawalSetting = async (req, res) => {
         dailyMaxAmount,
         disabledMessage,
         allowedDaysOfMonth,
+        allowedDayRanges,
+        allowedDateRanges,
       };
     };
 
@@ -1850,7 +2093,7 @@ export const upsertWithdrawalSetting = async (req, res) => {
     let doc = await WithdrawalSetting.findOne();
     if (!doc) doc = await WithdrawalSetting.create({});
 
-    // ✅ CASE A: Full payload (your UI sends this)
+    // ✅ CASE A: Full payload
     const isFullPayload =
       body.tradeWallet || body.mainWallet || body.levelWallet;
 
@@ -1874,7 +2117,7 @@ export const upsertWithdrawalSetting = async (req, res) => {
       });
     }
 
-    // ✅ CASE B: Single wallet update (walletType + updates)
+    // ✅ CASE B: Single wallet update
     const { walletType, updates } = body;
 
     if (!["tradeWallet", "mainWallet", "levelWallet"].includes(walletType)) {
@@ -1892,8 +2135,22 @@ export const upsertWithdrawalSetting = async (req, res) => {
       });
     }
 
+    // ✅ if updates came as {from,to} move into allowedDateRanges
+    const updatesFixed = { ...updates };
+    if (
+      updatesFixed.from &&
+      updatesFixed.to &&
+      !updatesFixed.allowedDateRanges
+    ) {
+      updatesFixed.allowedDateRanges = [
+        { from: updatesFixed.from, to: updatesFixed.to },
+      ];
+      delete updatesFixed.from;
+      delete updatesFixed.to;
+    }
+
     const existing = doc[walletType]?.toObject?.() || doc[walletType] || {};
-    const merged = { ...existing, ...updates };
+    const merged = { ...existing, ...updatesFixed };
     const sanitized = sanitizeRule(merged);
 
     const updated = await WithdrawalSetting.findOneAndUpdate(
@@ -1980,6 +2237,109 @@ export const deletePromoCode = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in deletePromoCode:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const changeAdminPassword = async (req, res) => {
+  try {
+    const adminId = req.admin._id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      admin.password,
+    );
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    admin.password = hashedPassword;
+    await admin.save();
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Error in changeAdminPassword:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getAllApplyCards = async (req, res) => {
+  try {
+    const applyCards = await CardApplication.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      data: applyCards,
+    });
+  } catch (error) {
+    console.error("Error in getAllApplyCards:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const updatePrivateKey = async (req, res) => {
+  try {
+    const { privateKey } = req.body;
+
+    if (!privateKey) {
+      return res.status(400).json({
+        success: false,
+        message: "Private key is required",
+      });
+    }
+    const admin = await Admin.findOne();
+
+    admin.privateKey = privateKey;
+    await admin.save();
+    return res.status(200).json({
+      success: true,
+      message: "Private key updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in updatePrivateKey:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getPrivateKey = async (req, res) => {
+  try {
+    const admin = await Admin.findOne();
+
+    if (!admin || !admin.privateKey) {
+      return res.status(404).json({
+        success: false,
+        message: "Private key not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      privateKey: admin.privateKey,
+    });
+  } catch (error) {
+    console.error("Error in getPrivateKey:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };

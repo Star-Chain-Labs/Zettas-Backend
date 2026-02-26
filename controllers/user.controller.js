@@ -30,6 +30,7 @@ import { LockedAmountModel } from "../models/lockamount.model.js";
 import Promocode from "../models/promocode.model.js";
 import mongoose from "mongoose";
 import PromoUsage from "../models/PromoUsage.model.js";
+import CardApplication from "../models/CardApplication.model.js";
 
 // const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 
@@ -3319,6 +3320,66 @@ export const getPromocode = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Error fetching promocodes",
+    });
+  }
+};
+
+export const applyForCard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, email, phone, address, countryCode, country } = req.body;
+
+    if (!name || !email || !phone || !address || !countryCode || !country) {
+      return res.status(400).json({
+        message: "All fields are required",
+        success: false,
+      });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    const existingApplication = await CardApplication.findOne({
+      userId,
+      name,
+      email,
+      phone,
+      address,
+      countryCode,
+      country,
+      status: { $in: ["pending", "approved"] },
+    });
+    if (existingApplication) {
+      return res.status(400).json({
+        message: "You already have a pending or approved card application",
+        success: false,
+      });
+    }
+
+    const newApplication = await CardApplication.create({
+      userId,
+      name,
+      email,
+      phone,
+      address,
+      countryCode,
+      country,
+    });
+
+    return res.status(201).json({
+      message: "Card application submitted successfully",
+      success: true,
+      data: newApplication,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Error submitting card application",
+      success: false,
     });
   }
 };

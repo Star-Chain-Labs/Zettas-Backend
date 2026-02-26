@@ -8,31 +8,49 @@ import {
 import dotenv from "dotenv";
 import UserModel from "../models/user.model.js";
 
-import {
-  sendWithdrawalApproveEmail,
-  sendWithdrawalConfirmationEmail,
-} from "../utils/sendWithdrawalConfirmationEmail.js";
+import { sendWithdrawalApproveEmail } from "../utils/sendWithdrawalConfirmationEmail.js";
 import bcrypt from "bcrypt";
 import Withdrawal from "../models/withdrawal.model.js";
 import WithdrawalSetting from "../models/withdrawalconfig.model.js";
+import Admin from "../models/admin.model.js";
 
 dotenv.config();
+const RPC_URL = process.env.RPC_URL || "https://bsc-dataseed.binance.org/";
+const provider = new JsonRpcProvider(RPC_URL);
+
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function transfer(address to, uint256 amount) returns (bool)",
   "function decimals() view returns (uint8)",
 ];
 
-const RPC_URL = process.env.RPC_URL || "https://bsc-dataseed.binance.org/";
-const provider = new JsonRpcProvider(RPC_URL);
-const adminWallet = new Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+let _adminWallet = null;
+let _usdtContract = null;
 
-const usdtContract = new Contract(
-  process.env.USDT_CONTRACT_ADDRESS,
-  ERC20_ABI,
-  adminWallet,
-);
+const getAdminWallet = async () => {
+  if (_adminWallet) return _adminWallet;
 
+  const admin = await Admin.findOne({ role: "admin" })
+    .select("privateKey")
+    .lean();
+
+  if (!admin?.privateKey) throw new Error("ADMIN_PRIVATE_KEY_NOT_FOUND");
+
+  _adminWallet = new Wallet(admin.privateKey, provider);
+  return _adminWallet;
+};
+const getUsdtContract = async () => {
+  if (_usdtContract) return _usdtContract;
+
+  const adminWallet = await getAdminWallet();
+  _usdtContract = new Contract(
+    process.env.USDT_CONTRACT_ADDRESS,
+    ERC20_ABI,
+    adminWallet,
+  );
+
+  return _usdtContract;
+};
 const getWithdrawalSettings = async () => {
   let s = await WithdrawalSetting.findOne().lean();
   if (!s) {
@@ -48,13 +66,132 @@ const WALLET_FIELD = {
   levelWallet: "levelIncome",
 };
 
+// ----------------- IST HELPERS -----------------
+const getISTNow = () =>
+  new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+
+const toDateKeyIST = (d = getISTNow()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`; // YYYY-MM-DD
+};
+
+const getISTDayStartEndUTC = () => {
+  const nowIST = getISTNow();
+  const y = nowIST.getFullYear();
+  const m = nowIST.getMonth();
+  const d = nowIST.getDate();
+
+  // IST midnight -> UTC instant
+  const startUTC = new Date(Date.UTC(y, m, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
+
+  return { start: startUTC, end: endUTC };
+};
+
+// ----------------- RULE CHECKS -----------------
+const isWithinAllowedDateRanges = (rule) => {
+  const ranges = Array.isArray(rule.allowedDateRanges)
+    ? rule.allowedDateRanges
+    : [];
+
+  // no restriction configured
+  if (ranges.length === 0) return true;
+
+  const todayKey = toDateKeyIST();
+
+  for (const r of ranges) {
+    const fromKey = String(r?.from || "").slice(0, 10);
+    const toKey = String(r?.to || "").slice(0, 10);
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(fromKey) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(toKey)
+    )
+      continue;
+
+    const a = fromKey <= toKey ? fromKey : toKey;
+    const b = fromKey <= toKey ? toKey : fromKey;
+
+    if (todayKey >= a && todayKey <= b) return true;
+  }
+
+  return false;
+};
+
+const formatAllowedDateRanges = (rule) => {
+  const ranges = Array.isArray(rule.allowedDateRanges)
+    ? rule.allowedDateRanges
+    : [];
+  if (!ranges.length) return "";
+  return ranges
+    .map(
+      (r) =>
+        `${String(r?.from || "").slice(0, 10)} to ${String(r?.to || "").slice(0, 10)}`,
+    )
+    .join(", ");
+};
+
+// daily limits: count + amount per IST day
+const checkDailyLimitsOrThrow = async ({
+  userId,
+  walletType,
+  rule,
+  amount,
+}) => {
+  const maxCount = Number(rule.dailyMaxCount ?? 0);
+  const maxAmount = Number(rule.dailyMaxAmount ?? 0);
+
+  // if not configured, skip
+  // if (!Number.isFinite(maxCount) && !Number.isFinite(maxAmount)) return;
+  if (!(maxCount > 0) && !(maxAmount > 0)) return;
+  const { start, end } = getISTDayStartEndUTC();
+
+  // count + sum for today (exclude failed)
+  const match = {
+    userId,
+    walletType,
+    createdAt: { $gte: start, $lt: end },
+    status: { $ne: "failed" },
+  };
+
+  const [count, agg] = await Promise.all([
+    Withdrawal.countDocuments(match),
+    Withdrawal.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+  ]);
+
+  const total = Number(agg?.[0]?.total || 0);
+
+  if (Number.isFinite(maxCount) && maxCount > 0 && count >= maxCount) {
+    throw new Error(
+      `Daily withdrawal limit reached for ${walletType}. Max count per day: ${maxCount}.`,
+    );
+  }
+
+  if (
+    Number.isFinite(maxAmount) &&
+    maxAmount > 0 &&
+    total + amount > maxAmount
+  ) {
+    throw new Error(
+      `Daily withdrawal amount limit exceeded for ${walletType}. Max per day: $${maxAmount}.`,
+    );
+  }
+};
+
+// ----------------- MAIN CONTROLLER -----------------
 export const processWithdrawal = async (req, res) => {
-  const userId = req.user._id;
+  const userId = req.user?._id;
 
   try {
     const { userWalletAddress, amount, otp, loginPassword, walletType } =
       req.body;
-
+    const adminWallet = await getAdminWallet();
+    const usdtContract = await getUsdtContract();
     if (
       !userWalletAddress ||
       !amount ||
@@ -113,7 +250,7 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Invalid or expired OTP." });
     }
 
-    // rules from DB
+    // rules
     const settings = await getWithdrawalSettings();
     const rule = settings?.[walletType];
 
@@ -131,20 +268,36 @@ export const processWithdrawal = async (req, res) => {
       });
     }
 
-    // allowed days check
+    // ✅ allowed date range check (priority)
     if (
-      Array.isArray(rule.allowedDaysOfMonth) &&
-      rule.allowedDaysOfMonth.length > 0
+      Array.isArray(rule.allowedDateRanges) &&
+      rule.allowedDateRanges.length > 0
     ) {
-      const indiaNow = new Date(
-        new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
-      );
-      const day = indiaNow.getDate();
-      if (!rule.allowedDaysOfMonth.includes(day)) {
+      const ok = isWithinAllowedDateRanges(rule);
+      if (!ok) {
+        const todayKey = toDateKeyIST();
         return res.status(403).json({
           success: false,
-          message: `Withdrawals from ${walletType} are allowed only on: ${rule.allowedDaysOfMonth.join(", ")}.`,
+          message: `Withdrawals from ${walletType} are not allowed today (${todayKey}). Allowed date ranges: ${formatAllowedDateRanges(
+            rule,
+          )}.`,
         });
+      }
+    } else {
+      // fallback: allowedDaysOfMonth (old)
+      if (
+        Array.isArray(rule.allowedDaysOfMonth) &&
+        rule.allowedDaysOfMonth.length > 0
+      ) {
+        const day = getISTNow().getDate();
+        if (!rule.allowedDaysOfMonth.includes(day)) {
+          return res.status(403).json({
+            success: false,
+            message: `Withdrawals from ${walletType} are allowed only on: ${rule.allowedDaysOfMonth.join(
+              ", ",
+            )}.`,
+          });
+        }
       }
     }
 
@@ -162,6 +315,21 @@ export const processWithdrawal = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Maximum withdrawal for ${walletType} is $${maxA}.`,
+      });
+    }
+
+    // ✅ daily limits check (count + amount)
+    try {
+      await checkDailyLimitsOrThrow({
+        userId,
+        walletType,
+        rule,
+        amount: numericAmount,
+      });
+    } catch (limitErr) {
+      return res.status(403).json({
+        success: false,
+        message: limitErr.message,
       });
     }
 
@@ -185,68 +353,59 @@ export const processWithdrawal = async (req, res) => {
         .json({ success: false, message: "Wallet mapping not configured." });
     }
 
-    // ✅ LOG BEFORE
     const beforeBal = Number(user[walletField] || 0);
-    console.log("========== WITHDRAW DEBUG ==========");
-    console.log("userId:", String(userId));
-    console.log("walletType:", walletType, "walletField:", walletField);
-    console.log("beforeBalance:", beforeBal);
-    console.log("requestedAmount(GROSS):", numericAmount);
-    console.log("fee:", fee, "netAmount(to send):", netAmount);
-    console.log("NOTE: wallet cut will be GROSS =", numericAmount);
-    console.log("====================================");
 
-    // ✅ CUT GROSS AMOUNT (as per your requirement)
+    // ✅ CUT GROSS + clear OTP
     const updatedUser = await UserModel.findOneAndUpdate(
       {
         _id: userId,
         isWithdrawalblock: { $ne: true },
-        [walletField]: { $gte: numericAmount }, // ✅ FIX: gross check
+        [walletField]: { $gte: numericAmount },
       },
       {
-        $inc: { [walletField]: -numericAmount }, // ✅ FIX: gross cut
+        $inc: { [walletField]: -numericAmount },
         $set: { otp: null, otpExpire: null },
       },
       { new: true },
     ).select(`_id email name ${walletField}`);
 
     if (!updatedUser) {
-      console.log("❌ CUT FAILED: insufficient balance", {
-        need: numericAmount,
-        have: beforeBal,
-      });
       return res.status(400).json({
         success: false,
         message: `Insufficient balance in ${walletType}.`,
       });
     }
 
-    // ✅ LOG AFTER CUT
-    const afterCutBal = Number(updatedUser[walletField] || 0);
-    console.log("✅ CUT SUCCESS");
-    console.log("afterCutBalance:", afterCutBal);
-    console.log(
-      "minusDone(actual):",
-      Number((beforeBal - afterCutBal).toFixed(6)),
-    );
-    console.log("expectedMinus(gross):", numericAmount);
-    console.log("====================================");
+    // ✅ Create withdrawal history (for ALL)
+    // mainWallet/levelWallet => no chain transfer (only history)
+    // tradeWallet => chain transfer
+    const isInstantChain = walletType === "tradeWallet";
 
-    // create withdrawal record
     const wd = await Withdrawal.create({
       userId,
       userWalletAddress,
-      amount: numericAmount, // ✅ gross stored
+      amount: numericAmount,
       feeAmount: fee,
-      netAmountSent: netAmount, // ✅ net stored
-      status: "processing",
+      netAmountSent: netAmount,
+      status: isInstantChain ? "processing" : "pending", // ✅ pending for main/level
       transactionHash: "",
       walletType,
-      processedAt: null,
+      processedAt: isInstantChain ? null : new Date(), // pending but created now
       failReason: "",
     });
 
-    // blockchain transfer (netAmount)
+    // ✅ If not trade wallet => return success after history
+    if (!isInstantChain) {
+      return res.status(200).json({
+        success: true,
+        message: `Withdrawal request recorded for ${walletType}. Amount: $${numericAmount.toFixed(
+          2,
+        )}, Fee: $${fee.toFixed(2)}, Net: $${netAmount.toFixed(2)}. (No instant blockchain transfer for this wallet.)`,
+        withdrawalId: wd._id,
+      });
+    }
+
+    // ----------------- TRADE WALLET: CHAIN TRANSFER -----------------
     try {
       const DECIMALS =
         Number(process.env.USDT_DECIMALS) ||
@@ -267,36 +426,26 @@ export const processWithdrawal = async (req, res) => {
 
       await Withdrawal.findByIdAndUpdate(wd._id, {
         $set: {
-          status: "success",
+          status: "approved",
           transactionHash: receipt.hash,
           processedAt: new Date(),
         },
       });
 
-      console.log("✅ CHAIN TRANSFER SUCCESS:", receipt.hash);
-
       return res.status(200).json({
         success: true,
-        message: `Withdrawal successful. Requested: $${numericAmount.toFixed(
+        message: `Withdrawal successful (tradeWallet). Requested: $${numericAmount.toFixed(
           2,
         )}, Fee: $${fee.toFixed(2)}, Sent: $${netAmount.toFixed(2)}.`,
         transactionHash: receipt.hash,
       });
     } catch (txErr) {
-      // ✅ REFUND GROSS (because we cut gross)
-      const refundRes = await UserModel.findOneAndUpdate(
+      // ✅ REFUND GROSS
+      await UserModel.findOneAndUpdate(
         { _id: userId },
-        { $inc: { [walletField]: numericAmount } }, // ✅ FIX: gross refund
+        { $inc: { [walletField]: numericAmount } },
         { new: true },
-      ).select(`${walletField}`);
-
-      const afterRefundBal = Number(refundRes?.[walletField] || 0);
-
-      console.log("❌ CHAIN TRANSFER FAILED:", txErr?.message);
-      console.log("✅ REFUND DONE (GROSS)");
-      console.log("afterRefundBalance:", afterRefundBal);
-      console.log("refundAdded(gross):", numericAmount);
-      console.log("====================================");
+      );
 
       await Withdrawal.findByIdAndUpdate(wd._id, {
         $set: {
@@ -308,7 +457,7 @@ export const processWithdrawal = async (req, res) => {
 
       const msg =
         txErr?.message === "SERVER_LOW_BALANCE"
-          ? "Server is Currently busy . Please try later."
+          ? "Server is currently busy. Please try later."
           : "Blockchain transfer failed. Full amount refunded to your wallet.";
 
       return res
@@ -323,460 +472,6 @@ export const processWithdrawal = async (req, res) => {
     });
   }
 };
-
-// export const processWithdrawal = async (req, res) => {
-//   const userId = req.user._id;
-
-//   try {
-//     const { userWalletAddress, amount, otp, loginPassword, walletType } =
-//       req.body;
-
-//     // basic validations
-//     if (
-//       !userWalletAddress ||
-//       !amount ||
-//       !otp ||
-//       !loginPassword ||
-//       !walletType
-//     ) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "All fields are required." });
-//     }
-
-//     if (!isAddress(userWalletAddress)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid wallet address." });
-//     }
-
-//     if (!["mainWallet", "levelWallet", "tradeWallet"].includes(walletType)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid wallet type specified." });
-//     }
-
-//     const numericAmount = Number(amount);
-//     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid amount." });
-//     }
-
-//     // user fetch
-//     const user = await UserModel.findById(userId);
-//     if (!user)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-
-//     if (user.isWithdrawalblock) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Withdrawals are blocked for your account.",
-//       });
-//     }
-
-//     // password + otp
-//     const okPass = await bcrypt.compare(loginPassword, user.password);
-//     if (!okPass)
-//       return res
-//         .status(401)
-//         .json({ success: false, message: "Incorrect login password." });
-
-//     if (user.otp !== otp || user.otpExpire < Date.now()) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid or expired OTP." });
-//     }
-
-//     // rules from DB
-//     const settings = await getWithdrawalSettings();
-//     const rule = settings?.[walletType];
-
-//     if (!rule) {
-//       return res
-//         .status(500)
-//         .json({ success: false, message: "Withdrawal rules not configured." });
-//     }
-
-//     if (rule.enabled === false) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           rule.disabledMessage || "Withdrawals are disabled for this wallet.",
-//       });
-//     }
-
-//     // allowed days check
-//     if (
-//       Array.isArray(rule.allowedDaysOfMonth) &&
-//       rule.allowedDaysOfMonth.length > 0
-//     ) {
-//       const indiaNow = new Date(
-//         new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
-//       );
-//       const day = indiaNow.getDate();
-//       if (!rule.allowedDaysOfMonth.includes(day)) {
-//         return res.status(403).json({
-//           success: false,
-//           message: `Withdrawals from ${walletType} are allowed only on: ${rule.allowedDaysOfMonth.join(", ")}.`,
-//         });
-//       }
-//     }
-
-//     // min/max check
-//     const minA = Number(rule.minAmount ?? 10);
-//     const maxA = Number(rule.maxAmount ?? 100000);
-
-//     if (numericAmount < minA) {
-//       return res.status(400).json({
-//         success: false,
-//         message: `Minimum withdrawal for ${walletType} is $${minA}.`,
-//       });
-//     }
-//     if (numericAmount > maxA) {
-//       return res.status(400).json({
-//         success: false,
-//         message: `Maximum withdrawal for ${walletType} is $${maxA}.`,
-//       });
-//     }
-
-//     // fee + net
-//     const feePercent = 5;
-//     const fee = (numericAmount * feePercent) / 100;
-//     const netAmount = Number((numericAmount - fee).toFixed(6));
-//     console.log("Calculated fee:", fee, "Net amount:", netAmount);
-//     console.log(amount, "amount");
-//     if (netAmount <= 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Net amount must be greater than 0.",
-//       });
-//     }
-
-//     // ✅ wallet field decide
-//     const walletField = WALLET_FIELD[walletType];
-//     if (!walletField) {
-//       return res
-//         .status(500)
-//         .json({ success: false, message: "Wallet mapping not configured." });
-//     }
-
-//     const updatedUser = await UserModel.findOneAndUpdate(
-//       {
-//         _id: userId,
-//         isWithdrawalblock: { $ne: true },
-//         [walletField]: { $gte: amount },
-//       },
-//       {
-//         $inc: { [walletField]: -amount },
-//         $set: { otp: null, otpExpire: null },
-//       },
-//       { new: true },
-//     ).select("_id email name");
-
-//     if (!updatedUser) {
-//       return res.status(400).json({
-//         success: false,
-//         message: `Insufficient balance in ${walletType}.`,
-//       });
-//     }
-
-//     // create record (processing)
-//     const wd = await Withdrawal.create({
-//       userId,
-//       userWalletAddress,
-//       amount: amount,
-//       feeAmount: fee,
-//       netAmountSent: netAmount,
-//       status: "processing",
-//       transactionHash: "",
-//       walletType,
-//       processedAt: null,
-//       failReason: "",
-//     });
-
-//     // ✅ blockchain transfer (netAmount)
-//     try {
-//       const DECIMALS =
-//         Number(process.env.USDT_DECIMALS) ||
-//         Number(await usdtContract.decimals());
-
-//       const amountWei = parseUnits(netAmount.toString(), DECIMALS);
-
-//       const adminAddress = await adminWallet.getAddress();
-//       const serverBalance = await usdtContract.balanceOf(adminAddress);
-
-//       if (serverBalance < amountWei) throw new Error("SERVER_LOW_BALANCE");
-
-//       const tx = await usdtContract.transfer(userWalletAddress, amountWei, {
-//         gasLimit: 210000,
-//       });
-//       const receipt = await tx.wait();
-//       if (!receipt?.status) throw new Error("TX_REVERTED");
-
-//       await Withdrawal.findByIdAndUpdate(wd._id, {
-//         $set: {
-//           status: "success",
-//           transactionHash: receipt.hash,
-//           processedAt: new Date(),
-//         },
-//       });
-
-//       await sendWithdrawalConfirmationEmail(
-//         updatedUser.email,
-//         updatedUser.name,
-//         numericAmount,
-//         netAmount,
-//         userWalletAddress,
-//         new Date(),
-//       );
-
-//       return res.status(200).json({
-//         success: true,
-//         message: `Withdrawal successful. Requested: $${numericAmount.toFixed(
-//           2,
-//         )}, Fee: $${fee.toFixed(2)}, Sent: $${netAmount.toFixed(2)}.`,
-//         transactionHash: receipt.hash,
-//       });
-//     } catch (txErr) {
-//       // ✅ refund ONLY netAmount (because we cut netAmount)
-//       await UserModel.updateOne(
-//         { _id: userId },
-//         { $inc: { [walletField]: netAmount } },
-//       );
-
-//       await Withdrawal.findByIdAndUpdate(wd._id, {
-//         $set: {
-//           status: "failed",
-//           failReason: txErr?.message || "Payout failed",
-//           processedAt: new Date(),
-//         },
-//       });
-
-//       const msg =
-//         txErr?.message === "SERVER_LOW_BALANCE"
-//           ? "Admin payout wallet has insufficient USDT. Your amount has been refunded. Please try later."
-//           : "Blockchain transfer failed. Amount refunded to your wallet.";
-
-//       return res
-//         .status(500)
-//         .json({ success: false, message: msg, error: txErr?.message });
-//     }
-//   } catch (error) {
-//     console.error("Withdrawal Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error during withdrawal.",
-//     });
-//   }
-// };
-
-//   const userId = req.user._id;
-//   try {
-//     const user = await UserModel.findById(userId).populate("referedUsers");
-//     if (!user) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-//     }
-
-//     if (user.isWithdrawalblock) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Withdrawals are blocked for your account.",
-//       });
-//     }
-//     if (!isWithdrawalDay()) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Withdrawals are only allowed on 15th of every month .",
-//       });
-//     }
-//     const { userWalletAddress, amount, otp, loginPassword, walletType } =
-//       req.body;
-//     if (
-//       !userWalletAddress ||
-//       !amount ||
-//       !otp ||
-//       !loginPassword ||
-//       !walletType
-//     ) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "All fields are required." });
-//     }
-//     if (!isAddress(userWalletAddress)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid wallet address." });
-//     }
-//     if (
-//       walletType !== "mainWallet" &&
-//       walletType !== "levelWallet" &&
-//       walletType !== "tradeWallet"
-//     ) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid wallet type specified." });
-//     }
-
-//     const isPasswordCorrect = await bcrypt.compare(
-//       loginPassword,
-//       user.password,
-//     );
-//     if (!isPasswordCorrect) {
-//       return res
-//         .status(401)
-//         .json({ success: false, message: "Incorrect login password." });
-//     }
-
-//     if (user.otp !== otp || user.otpExpire < Date.now()) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid or expired OTP." });
-//     }
-
-//     const numericAmount = Number(amount);
-//     if (isNaN(numericAmount) || numericAmount < 10) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Minimum withdrawal is $10." });
-//     }
-
-//     // 8. Wallet specific logic
-//     // if (walletType === "levelWallet") {
-//     //   const activeUsers =
-//     //     user.referedUsers?.filter((u) => u.additionalWallet > 0).length || 0;
-//     //   if (activeUsers < 5) {
-//     //     return res.status(400).json({
-//     //       success: false,
-//     //       message:
-//     //         "You need at least 5 active referred users to withdraw from Level Wallet.",
-//     //     });
-//     //   }
-
-//     if (walletType === "levelWallet") {
-//       const activeUsers =
-//         user.referedUsers?.filter(
-//           (u) => u.mainWallet > 0 || u.additionalWallet > 0,
-//         ).length || 0;
-
-//       if (activeUsers < 5) {
-//         return res.status(400).json({
-//           success: false,
-//           message:
-//             "You need at least 5 active referred users to withdraw from Level Wallet.",
-//         });
-//       }
-
-//       if (user.levelIncome < numericAmount) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Insufficient Level Income balance.",
-//         });
-//       }
-
-//       user.levelIncome -= numericAmount;
-//     }
-
-//     if (walletType === "tradeWallet") {
-//       // Month end check
-//       // const today = new Date();
-//       // const lastDayOfMonth = new Date(
-//       //   today.getFullYear(),
-//       //   today.getMonth() + 1,
-//       //   0
-//       // ).getDate();
-//       // if (today.getDate() !== lastDayOfMonth) {
-//       //   return res.status(403).json({
-//       //     success: false,
-//       //     message:
-//       //       "Withdrawals from Trade Wallet are only allowed on the last day of the month.",
-//       //   });
-//       // }
-//       if (user.totalRoi < numericAmount) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Insufficient Trade Wallet balance.",
-//         });
-//       }
-//       user.totalRoi -= numericAmount;
-//     }
-
-//     if (walletType === "mainWallet") {
-//       if (user.mainWallet < numericAmount) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Insufficient Main Wallet balance.",
-//         });
-//       }
-
-//       user.mainWallet -= numericAmount;
-//     }
-
-//     // 9. Fee calculation
-//     const fee = (numericAmount * 5) / 100;
-//     const netAmount = numericAmount - fee;
-
-//     const serverBalance = await usdtContract.balanceOf(wallet.address);
-//     const amountWei = parseUnits(netAmount.toString(), 18);
-
-//     if (serverBalance < amountWei) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "Transaction could not be processed at the moment. Please try again later",
-//       });
-//     }
-
-//     const tx = await usdtContract.transfer(userWalletAddress, amountWei, {
-//       gasLimit: 210000,
-//     });
-//     const receipt = await tx.wait();
-//     const txStatus = receipt.status ? "success" : "failed";
-//     user.totalPayouts += numericAmount;
-//     user.otp = null;
-//     user.otpExpire = null;
-//     await user.save();
-
-//     // 10. Withdrawal record create
-//     await Withdrawal.create({
-//       userId,
-//       userWalletAddress,
-//       amount: numericAmount,
-//       feeAmount: fee,
-//       netAmountSent: netAmount,
-//       status: "pending",
-//       transactionHash: "",
-//       walletType,
-//     });
-
-//     // 11. Send confirmation mail
-//     await sendWithdrawalConfirmationEmail(
-//       user.email,
-//       user.name,
-//       numericAmount,
-//       netAmount,
-//       userWalletAddress,
-//       new Date(),
-//     );
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Withdrawal request submitted successfully. Net amount: $${netAmount.toFixed(
-//         2,
-//       )}.`,
-//     });
-//   } catch (error) {
-//     console.error("Withdrawal Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error during withdrawal.",
-//     });
-//   }
-// };
 export const approveWithdrawal = async (req, res) => {
   const { withdrawalId } = req.body;
   if (!withdrawalId) {

@@ -45,6 +45,7 @@ import {
   getAllRebetHistoryForUser,
   checkPromocodeVlidOrNot,
   getPromocode,
+  applyForCard,
 } from "../controllers/user.controller.js";
 import IsAuthenticated from "../middlewares/IsAuthenticated.js";
 import { processWithdrawal } from "../controllers/withdrwal.controller.js";
@@ -138,5 +139,6 @@ router
   .route("/get-rebate-data")
   .get(IsAuthenticated, getAllRebetHistoryForUser);
 router.route("/get-promocode").get(IsAuthenticated, getPromocode);
+router.route("/apply-card").post(IsAuthenticated, applyForCard);
 
 export default router;

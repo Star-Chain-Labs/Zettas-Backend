@@ -11,6 +11,9 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    privateKey: {
+      type: String,
+    },
     role: {
       type: String,
       default: "admin",
