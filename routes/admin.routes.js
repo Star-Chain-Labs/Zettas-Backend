@@ -165,5 +165,4 @@ router
 router
   .route("/delete-promo-code/:id")
   .delete(isAdminAuthenticated, deletePromoCode);
-
 export default router;

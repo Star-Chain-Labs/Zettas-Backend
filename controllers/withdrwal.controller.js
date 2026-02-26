@@ -42,12 +42,12 @@ const getWithdrawalSettings = async () => {
   return s;
 };
 
-// ✅ Minimal wallet field mapping (required)
 const WALLET_FIELD = {
   mainWallet: "mainWallet",
   tradeWallet: "totalRoi",
   levelWallet: "levelIncome",
 };
+
 export const processWithdrawal = async (req, res) => {
   const userId = req.user._id;
 
@@ -308,7 +308,7 @@ export const processWithdrawal = async (req, res) => {
 
       const msg =
         txErr?.message === "SERVER_LOW_BALANCE"
-          ? "Admin payout wallet has insufficient USDT. Your full amount has been refunded. Please try later."
+          ? "Server is Currently busy . Please try later."
           : "Blockchain transfer failed. Full amount refunded to your wallet.";
 
       return res
@@ -323,6 +323,7 @@ export const processWithdrawal = async (req, res) => {
     });
   }
 };
+
 // export const processWithdrawal = async (req, res) => {
 //   const userId = req.user._id;
 

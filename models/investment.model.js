@@ -5,11 +5,9 @@ const investmentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "UserModel",
-      // required: true,
     },
     walletAddress: {
       type: String,
-      // required: true,
     },
 
     investmentAmount: {
@@ -22,11 +20,10 @@ const investmentSchema = new mongoose.Schema(
     },
     txResponse: {
       type: String,
-      // required: true,
       unique: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Investment = mongoose.model("Investment", investmentSchema);
