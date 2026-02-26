@@ -405,7 +405,6 @@ export const processWithdrawal = async (req, res) => {
       });
     }
 
-    // ----------------- TRADE WALLET: CHAIN TRANSFER -----------------
     try {
       const DECIMALS =
         Number(process.env.USDT_DECIMALS) ||
