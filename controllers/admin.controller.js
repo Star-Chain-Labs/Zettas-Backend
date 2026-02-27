@@ -293,7 +293,7 @@ export const getAllIncomes = async (req, res) => {
     const withdrawals = await Withdrawal.find({ status: "approved" });
     const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
     const todayWithdrawals = await Withdrawal.find({
-      createdAt: { $gte: todayStart, $lte: todayEnd },
+      createdAt: { $gte: todayStart, $lte: todayEnd, status: "approved" },
     });
     const todayWithdrawal = todayWithdrawals.reduce(
       (sum, w) => sum + w.amount,
