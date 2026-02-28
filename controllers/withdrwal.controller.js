@@ -318,7 +318,6 @@ export const processWithdrawal = async (req, res) => {
       });
     }
 
-    // ✅ daily limits check (count + amount)
     try {
       await checkDailyLimitsOrThrow({
         userId,
@@ -406,9 +405,7 @@ export const processWithdrawal = async (req, res) => {
     }
 
     try {
-      const DECIMALS =
-        Number(process.env.USDT_DECIMALS) ||
-        Number(await usdtContract.decimals());
+      const DECIMALS = await usdtContract.decimals();
 
       const amountWei = parseUnits(netAmount.toString(), DECIMALS);
 
