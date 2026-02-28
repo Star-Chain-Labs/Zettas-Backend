@@ -293,7 +293,8 @@ export const getAllIncomes = async (req, res) => {
     const withdrawals = await Withdrawal.find({ status: "approved" });
     const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
     const todayWithdrawals = await Withdrawal.find({
-      createdAt: { $gte: todayStart, $lte: todayEnd, status: "approved" },
+      status: "approved",
+      createdAt: { $gte: todayStart, $lte: todayEnd },
     });
     const todayWithdrawal = todayWithdrawals.reduce(
       (sum, w) => sum + w.amount,
@@ -333,7 +334,7 @@ export const getAllIncomes = async (req, res) => {
       },
     });
   } catch (error) {
-    // console.error("Error in getAllIncomes:", error);
+    console.error("Error in getAllIncomes:", error);
     return res.status(500).json({
       success: false,
       message: "Server Error",
