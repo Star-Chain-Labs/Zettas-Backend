@@ -3383,3 +3383,46 @@ export const applyForCard = async (req, res) => {
     });
   }
 };
+
+export const swapTradeToMainWallet = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { amount } = req.body;
+
+    if (!amount) {
+      return res.status(400).json({
+        message: "Amount is required",
+        success: false,
+      });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    if (user.currentEarnings < amount) {
+      return res.status(400).json({
+        message: "Insufficient balance",
+        success: false,
+      });
+    }
+
+    user.totalRoi -= amount;
+    user.mainWallet += amount;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Transaction successful to trade wallet to main wallet",
+      success: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Error swapping",
+      success: false,
+    });
+  }
+};

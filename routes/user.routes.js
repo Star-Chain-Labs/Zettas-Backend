@@ -46,6 +46,7 @@ import {
   checkPromocodeVlidOrNot,
   getPromocode,
   applyForCard,
+  swapTradeToMainWallet,
 } from "../controllers/user.controller.js";
 import IsAuthenticated from "../middlewares/IsAuthenticated.js";
 import { processWithdrawal } from "../controllers/withdrwal.controller.js";
@@ -140,5 +141,8 @@ router
   .get(IsAuthenticated, getAllRebetHistoryForUser);
 router.route("/get-promocode").get(IsAuthenticated, getPromocode);
 router.route("/apply-card").post(IsAuthenticated, applyForCard);
+router
+  .route("/swap-trade-to-main-wallet")
+  .post(IsAuthenticated, swapTradeToMainWallet);
 
 export default router;
