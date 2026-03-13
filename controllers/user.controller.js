@@ -3404,7 +3404,7 @@ export const swapTradeToMainWallet = async (req, res) => {
       });
     }
 
-    if (user.currentEarnings < amount) {
+    if (user.totalRoi < amount) {
       return res.status(400).json({
         message: "Insufficient balance",
         success: false,
