@@ -46,6 +46,13 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
+    if (user.todayTradeCount == 1) {
+      return res.status(200).json({
+        success: false,
+        message: "⛔ You have already claimed today's Trade.",
+        tradeStatus: "already-claimed",
+      });
+    }
     const investedAmount = Number(user?.additionalWallet || 0);
     const bonusAmount = Number(user?.bonusAmount || 0);
     if (isNaN(investedAmount) || investedAmount <= 0) {
@@ -112,9 +119,9 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
       totalTargetPercent,
       totalDays - daysPassed,
     );
-    console.log(
-      `Generated trade amount: ${tradeAmount}, Total Earned ROI: ${totalEarnedRoi}, Days Passed: ${daysPassed}`,
-    );
+    // console.log(
+    //   `Generated trade amount: ${tradeAmount}, Total Earned ROI: ${totalEarnedRoi}, Days Passed: ${daysPassed}`,
+    // );
 
     const bonusRatio = investedAmount > 0 ? bonusAmount / investedAmount : 0;
     const safeBonusRatio = Math.max(0, Math.min(1, bonusRatio));
@@ -152,6 +159,7 @@ export const triggerMonthlyTargetRoi = async (req, res) => {
     user.roiAndLevelIncome += Number(tradeAmount);
     user.dailyRoi = Number(tradeAmount);
     user.totalRoi += Number(tradeAmount);
+    user.todayTradeCount += 1;
     user.totalTradeCount += 1;
     await user.save();
 
