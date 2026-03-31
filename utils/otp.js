@@ -30,8 +30,9 @@ export const sendOTP = async (email, otp, username) => {
                     border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); background: #fff;">
           
           <h2 style="color: #007bff; margin-bottom: 10px;">🔐 Secure OTP</h2>
-          <p style="font-size: 16px; font-weight: bold;">Dear ${username || "User"
-        },</p>
+          <p style="font-size: 16px; font-weight: bold;">Dear ${
+            username || "User"
+          },</p>
           <p style="color: #333; font-size: 14px;">Your One-Time Password (OTP) is:</p>
           <div style="background: #f3f3f3; padding: 12px 24px; font-size: 22px; font-weight: bold;
                       display: inline-block; border-radius: 8px; letter-spacing: 2px; margin: 10px 0;
@@ -42,10 +43,7 @@ export const sendOTP = async (email, otp, username) => {
           <p style="font-size: 12px; color: #888; margin-top: 5px;">Tap & Hold to Copy</p>
 
           <p style="font-size: 12px; color: gray; margin-top: 10px;">Your OTP will expire in 10 minutes.</p>
-          
-          <p style="font-size: 14px;">For any queries, contact us at 
-              <a href="mailto:support@worldtrade.com" style="color: #007bff; text-decoration: none;">support@worldtrade.com</a>
-          </p>
+    
 
           <p style="font-weight: bold; color: #007bff; margin-top: 15px;">- The Zetta Trade Team</p>
         </div>
