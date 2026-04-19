@@ -1,26 +1,31 @@
 // utils/sendInvestmentEmail.js
 import nodemailer from "nodemailer";
 
-export const sendInvestmentConfirmationEmail = async (email, name, amount, date) => {
-    console.log(email, name, amount, date)
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL,
-            pass: process.env.EMAIL_PASSWORD,
-        },
-    });
+export const sendInvestmentConfirmationEmail = async (
+  email,
+  name,
+  amount,
+  date,
+) => {
+  console.log(email, name, amount, date);
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
 
-    const formattedDate = new Date(date).toLocaleString("en-US", {
-        dateStyle: "long",
-        timeStyle: "short",
-    });
+  const formattedDate = new Date(date).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
 
-    const mailOptions = {
-        from: `"Zetta" <${process.env.MAIL_USER}>`,
-        to: email,
-        subject: "✅ Investment Confirmation - Thank You!",
-        html: `
+  const mailOptions = {
+    from: `"Zetta" <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: "✅ Investment Confirmation - Thank You!",
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #f9f9f9;">
         <h2 style="color: #333;">Hello ${name},</h2>
         <p style="font-size: 16px; color: #555;">We're excited to let you know that your investment has been successfully received.</p>
@@ -42,13 +47,9 @@ export const sendInvestmentConfirmationEmail = async (email, name, amount, date)
         <div style="margin-top: 30px;">
           <a href="https://zettas.tech/dashboard" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">📊 Go to Dashboard</a>
         </div>
-
-        <p style="margin-top: 40px; font-size: 14px; color: #777;">If you have any questions, feel free to contact us at <a href="mailto:support@yourcompany.com">support@yourcompany.com</a>.</p>
-
-        <p style="margin-top: 20px; font-size: 14px; color: #555;">Warm regards,<br/><strong>Your Company Team</strong></p>
       </div>
     `,
-    };
+  };
 
-    await transporter.sendMail(mailOptions);
+  await transporter.sendMail(mailOptions);
 };
