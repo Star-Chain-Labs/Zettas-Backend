@@ -1330,6 +1330,135 @@ export const changePassword = async (req, res) => {
 //   }
 // };
 
+// export const swapAmount = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+
+//     if (!userId) {
+//       return res.status(401).json({
+//         message: "Unauthorized",
+//         success: false,
+//       });
+//     }
+
+//     let { amount, walletType, BonusAmount, code } = req.body;
+
+//     if (amount === undefined || amount === null || !walletType) {
+//       return res.status(400).json({
+//         message: "Amount and walletType are required",
+//         success: false,
+//       });
+//     }
+
+//     amount = Number(amount);
+//     const bonusAmt = Number(BonusAmount || 0);
+
+//     if (!Number.isFinite(amount) || amount <= 0) {
+//       return res.status(400).json({
+//         message: "Invalid amount",
+//         success: false,
+//       });
+//     }
+
+//     if (!Number.isFinite(bonusAmt) || bonusAmt < 0) {
+//       return res.status(400).json({
+//         message: "Invalid BonusAmount",
+//         success: false,
+//       });
+//     }
+
+//     // ✅ only allowed direction
+//     if (walletType !== "main-to-additional") {
+//       return res.status(400).json({
+//         message: "Invalid walletType. Only 'main-to-additional' is allowed.",
+//         success: false,
+//       });
+//     }
+
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         success: false,
+//       });
+//     }
+
+//     const fromBalance = Number(user.mainWallet || 0);
+//     const toBalance = Number(user.additionalWallet || 0);
+
+//     if (fromBalance < amount) {
+//       return res.status(400).json({
+//         message: "Insufficient balance in Main Wallet",
+//         success: false,
+//       });
+//     }
+//     user.mainWallet = fromBalance - amount;
+//     user.bonusAmount = Number(user.bonusAmount || 0) + bonusAmt;
+//     user.additionalWallet = toBalance + amount + bonusAmt;
+//     user.lockAmount = Number(user.lockAmount || 0) + amount;
+//     await user.save();
+//     if (user.sponsorId) {
+//       const parentUser = await UserModel.findById(user.sponsorId);
+//       const percentData = await DirectreferalPercentage.findOne();
+//       const percent = Number(percentData?.directReferralPercentage || 0);
+//       if (
+//         parentUser &&
+//         !parentUser.isIncomeBlocked &&
+//         Number.isFinite(percent) &&
+//         percent > 0
+//       ) {
+//         const referralBonus = (amount * percent) / 100;
+
+//         parentUser.directReferalAmount =
+//           Number(parentUser.directReferalAmount || 0) + referralBonus;
+//         parentUser.mainWallet =
+//           Number(parentUser.mainWallet || 0) + referralBonus;
+//         parentUser.totalEarnings =
+//           Number(parentUser.totalEarnings || 0) + referralBonus;
+//         parentUser.currentEarnings =
+//           Number(parentUser.currentEarnings || 0) + referralBonus;
+//         parentUser.aiCredits = Number(parentUser.aiCredits || 0) + 1;
+//         await parentUser.save();
+//         await ReferalBonus.create({
+//           userId: parentUser._id,
+//           fromUser: user._id,
+//           amount: referralBonus,
+//           date: new Date(),
+//           transferAmount: amount,
+//         });
+//       }
+//     }
+//     await LockedAmountModel.create({
+//       userId: user._id,
+//       amount: amount + bonusAmt,
+//       bonusAmount: bonusAmt,
+//       lockedAt: new Date(),
+//       isClaimed: false,
+//       isUnlocked: false,
+//       isBonus: bonusAmt > 0,
+//     });
+
+//     await PromoUsage.create({
+//       userId: user._id,
+//       promocode: code,
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message:
+//         bonusAmt > 0
+//           ? `Swapped $${amount}. Bonus $${bonusAmt} applied and locked for 5 months.`
+//           : `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
+//     });
+//   } catch (error) {
+//     console.error("Swap Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const swapAmount = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -1393,15 +1522,73 @@ export const swapAmount = async (req, res) => {
       });
     }
 
-    user.mainWallet = fromBalance - amount;
+    // =====================================================
+    // 🔥 ONLY NEW PROMO LOGIC (NOT TOUCHING EXISTING CODE)
+    // =====================================================
+    let discountAmount = 0;
+    let appliedFrom = null;
+
+    if (code) {
+      const upperCode = code.toUpperCase();
+
+      // 🌐 1. CHECK PROMOCODE MODEL FIRST
+      const publicPromo = await Promocode.findOne({
+        code: upperCode,
+      });
+
+      if (publicPromo && publicPromo.usedCount < publicPromo.redemptionsCount) {
+        const percent = Number(publicPromo.discountValue || 0);
+
+        if (percent > 0) {
+          discountAmount = (amount * percent) / 100;
+          appliedFrom = "public";
+
+          publicPromo.usedCount += 1;
+          await publicPromo.save();
+        }
+      }
+
+      // 🔒 2. USER PROMO (ONLY IF PUBLIC NOT FOUND)
+      if (!discountAmount) {
+        if (user.appliedPromo?.code && user.appliedPromo.code === upperCode) {
+          const percent = Number(user.appliedPromo.discountPercentage || 0);
+
+          if (percent > 0) {
+            discountAmount = (amount * percent) / 100;
+            appliedFrom = "user";
+          }
+        }
+      }
+    }
+
+    const finalAmount = amount - discountAmount;
+
+    // =========================
+    // 🚨 EXISTING LOGIC (UNCHANGED)
+    // =========================
+
+    user.mainWallet = fromBalance - finalAmount;
     user.bonusAmount = Number(user.bonusAmount || 0) + bonusAmt;
-    user.additionalWallet = toBalance + amount + bonusAmt;
+    user.additionalWallet = toBalance + finalAmount + bonusAmt;
     user.lockAmount = Number(user.lockAmount || 0) + amount;
+
     await user.save();
+    if (appliedFrom === "user") {
+      user.appliedPromo = {
+        code: null,
+        discountPercentage: 0,
+        amount: 0,
+        appliedAt: null,
+      };
+
+      await user.save();
+    }
+
     if (user.sponsorId) {
       const parentUser = await UserModel.findById(user.sponsorId);
       const percentData = await DirectreferalPercentage.findOne();
       const percent = Number(percentData?.directReferralPercentage || 0);
+
       if (
         parentUser &&
         !parentUser.isIncomeBlocked &&
@@ -1419,7 +1606,9 @@ export const swapAmount = async (req, res) => {
         parentUser.currentEarnings =
           Number(parentUser.currentEarnings || 0) + referralBonus;
         parentUser.aiCredits = Number(parentUser.aiCredits || 0) + 1;
+
         await parentUser.save();
+
         await ReferalBonus.create({
           userId: parentUser._id,
           fromUser: user._id,
@@ -1429,6 +1618,7 @@ export const swapAmount = async (req, res) => {
         });
       }
     }
+
     await LockedAmountModel.create({
       userId: user._id,
       amount: amount + bonusAmt,
@@ -1450,6 +1640,8 @@ export const swapAmount = async (req, res) => {
         bonusAmt > 0
           ? `Swapped $${amount}. Bonus $${bonusAmt} applied and locked for 5 months.`
           : `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
+      discountApplied: discountAmount,
+      promoType: appliedFrom,
     });
   } catch (error) {
     console.error("Swap Error:", error);
@@ -1459,6 +1651,7 @@ export const swapAmount = async (req, res) => {
     });
   }
 };
+
 export const allIncomes = async (req, res) => {
   const userId = req.user._id;
 
@@ -3257,6 +3450,50 @@ export const getAllLockedHistory = async (req, res) => {
   }
 };
 
+// export const checkPromocodeVlidOrNot = async (req, res) => {
+//   try {
+//     const { promocode } = req.body;
+
+//     if (!promocode) {
+//       return res.status(400).json({
+//         message: "Promocode is required",
+//         success: false,
+//       });
+//     }
+
+//     const alreadyUsed = await PromoUsage.findOne({
+//       userId: req.user._id,
+//       promocode,
+//     });
+
+//     if (alreadyUsed) {
+//       return res.status(400).json({
+//         message: "You have already used this promocode",
+//         success: false,
+//       });
+//     }
+
+//     const code = await Promocode.findOne({ code: promocode });
+//     if (!code) {
+//       return res.status(404).json({
+//         message: "Invalid promocode",
+//         success: false,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       message: "Promocode is valid",
+//       success: true,
+//       data: code,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       message: error.message || "Error validating promocode",
+//       success: false,
+//     });
+//   }
+// };
+
 export const checkPromocodeVlidOrNot = async (req, res) => {
   try {
     const { promocode } = req.body;
@@ -3268,30 +3505,42 @@ export const checkPromocodeVlidOrNot = async (req, res) => {
       });
     }
 
-    const alreadyUsed = await PromoUsage.findOne({
-      userId: req.user._id,
-      promocode,
-    });
+    const upperCode = promocode.toUpperCase();
 
-    if (alreadyUsed) {
-      return res.status(400).json({
-        message: "You have already used this promocode",
-        success: false,
+    // =========================
+    // 🚨 1. CHECK PUBLIC PROMOCODE FIRST
+    // =========================
+    const code = await Promocode.findOne({ code: upperCode });
+
+    if (code) {
+      return res.status(200).json({
+        message: "Promocode is valid (public)",
+        success: true,
+        data: code,
+        source: "public",
       });
     }
 
-    const code = await Promocode.findOne({ code: promocode });
-    if (!code) {
-      return res.status(404).json({
-        message: "Invalid promocode",
-        success: false,
+    // =========================
+    // 🔒 2. IF NOT FOUND → CHECK USER PROMO
+    // =========================
+    const user = await UserModel.findById(req.user._id);
+
+    if (user?.appliedPromo?.code && user.appliedPromo.code === upperCode) {
+      return res.status(200).json({
+        message: "Promocode is valid (user specific)",
+        success: true,
+        data: user.appliedPromo,
+        source: "user",
       });
     }
 
-    return res.status(200).json({
-      message: "Promocode is valid",
-      success: true,
-      data: code,
+    // =========================
+    // ❌ NOT FOUND ANYWHERE
+    // =========================
+    return res.status(404).json({
+      message: "Invalid promocode",
+      success: false,
     });
   } catch (error) {
     return res.status(500).json({
@@ -3300,7 +3549,6 @@ export const checkPromocodeVlidOrNot = async (req, res) => {
     });
   }
 };
-
 export const getPromocode = async (req, res) => {
   try {
     const userId = req.user._id;

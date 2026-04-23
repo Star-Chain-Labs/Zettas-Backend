@@ -29,6 +29,7 @@ import AdminTopUp from "../models/adminTopUp.model.js";
 import WithdrawalSetting from "../models/withdrawalconfig.model.js";
 import Promocode from "../models/promocode.model.js";
 import CardApplication from "../models/CardApplication.model.js";
+import PromocodeUser from "../models/PromocodeUser.model.js";
 
 export const adminRegister = async (req, res) => {
   try {
@@ -2342,5 +2343,53 @@ export const getPrivateKey = async (req, res) => {
   } catch (error) {
     console.error("Error in getPrivateKey:", error);
     res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const assignPromoToUser = async (req, res) => {
+  try {
+    const { username, code, discountPercentage } = req.body;
+
+    if (!username || !code || !discountPercentage) {
+      return res.status(400).json({
+        success: false,
+        message: "username, code and discountPercentage are required",
+      });
+    }
+    const user = await UserModel.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.appliedPromo = {
+      code: code.trim().toUpperCase(),
+      discountPercentage,
+      appliedAt: new Date(),
+    };
+
+    await PromocodeUser.create({
+      userId: user._id,
+      code: code.trim().toUpperCase(),
+      discountPercentage,
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Promo code assigned to user successfully",
+      data: user.appliedPromo,
+    });
+  } catch (error) {
+    console.error("assignPromoToUser error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };

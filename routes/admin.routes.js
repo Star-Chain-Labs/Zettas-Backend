@@ -47,6 +47,7 @@ import {
   getAllApplyCards,
   updatePrivateKey,
   getPrivateKey,
+  assignPromoToUser,
 } from "../controllers/admin.controller.js";
 import { isAdminAuthenticated } from "../middlewares/adminMiddleware.js";
 import {
@@ -180,4 +181,5 @@ router
   .route("/update-private-key")
   .post(isAdminAuthenticated, updatePrivateKey);
 router.route("/get-private-key").get(isAdminAuthenticated, getPrivateKey);
+router.route("/create-promocode").post(isAdminAuthenticated, assignPromoToUser);
 export default router;

@@ -252,6 +252,24 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    appliedPromo: {
+      code: {
+        type: String,
+        default: null,
+      },
+      discountPercentage: {
+        type: Number,
+        default: 0,
+      },
+      amount: {
+        type: Number,
+        default: 0,
+      },
+      appliedAt: {
+        type: Date,
+        default: null,
+      },
+    },
     isWithdrawalblock: { type: Boolean, default: false },
     // trc20Address: {
     //   type: String,
