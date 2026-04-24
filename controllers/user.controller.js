@@ -1459,6 +1459,199 @@ export const changePassword = async (req, res) => {
 //   }
 // };
 
+// export const swapAmount = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+
+//     if (!userId) {
+//       return res.status(401).json({
+//         message: "Unauthorized",
+//         success: false,
+//       });
+//     }
+
+//     let { amount, walletType, BonusAmount, code } = req.body;
+
+//     if (amount === undefined || amount === null || !walletType) {
+//       return res.status(400).json({
+//         message: "Amount and walletType are required",
+//         success: false,
+//       });
+//     }
+
+//     amount = Number(amount);
+//     const bonusAmt = Number(BonusAmount || 0);
+
+//     if (!Number.isFinite(amount) || amount <= 0) {
+//       return res.status(400).json({
+//         message: "Invalid amount",
+//         success: false,
+//       });
+//     }
+
+//     if (!Number.isFinite(bonusAmt) || bonusAmt < 0) {
+//       return res.status(400).json({
+//         message: "Invalid BonusAmount",
+//         success: false,
+//       });
+//     }
+
+//     // ✅ only allowed direction
+//     if (walletType !== "main-to-additional") {
+//       return res.status(400).json({
+//         message: "Invalid walletType. Only 'main-to-additional' is allowed.",
+//         success: false,
+//       });
+//     }
+
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         success: false,
+//       });
+//     }
+
+//     const fromBalance = Number(user.mainWallet || 0);
+//     const toBalance = Number(user.additionalWallet || 0);
+
+//     if (fromBalance < amount) {
+//       return res.status(400).json({
+//         message: "Insufficient balance in Main Wallet",
+//         success: false,
+//       });
+//     }
+
+//     // =====================================================
+//     // 🔥 ONLY NEW PROMO LOGIC (NOT TOUCHING EXISTING CODE)
+//     // =====================================================
+//     let discountAmount = 0;
+//     let appliedFrom = null;
+
+//     if (code) {
+//       const upperCode = code.toUpperCase();
+
+//       // 🌐 1. CHECK PROMOCODE MODEL FIRST
+//       const publicPromo = await Promocode.findOne({
+//         code: upperCode,
+//       });
+
+//       if (publicPromo && publicPromo.usedCount < publicPromo.redemptionsCount) {
+//         const percent = Number(publicPromo.discountValue || 0);
+
+//         if (percent > 0) {
+//           discountAmount = (amount * percent) / 100;
+//           appliedFrom = "public";
+
+//           publicPromo.usedCount += 1;
+//           await publicPromo.save();
+//         }
+//       }
+
+//       // 🔒 2. USER PROMO (ONLY IF PUBLIC NOT FOUND)
+//       if (!discountAmount) {
+//         if (user.appliedPromo?.code && user.appliedPromo.code === upperCode) {
+//           const percent = Number(user.appliedPromo.discountPercentage || 0);
+
+//           if (percent > 0) {
+//             discountAmount = (amount * percent) / 100;
+//             appliedFrom = "user";
+//           }
+//         }
+//       }
+//     }
+
+//     const finalAmount = amount - discountAmount;
+
+//     // =========================
+//     // 🚨 EXISTING LOGIC (UNCHANGED)
+//     // =========================
+
+//     user.mainWallet = fromBalance - finalAmount;
+//     user.bonusAmount = Number(user.bonusAmount || 0) + bonusAmt;
+//     user.additionalWallet = toBalance + finalAmount + bonusAmt;
+//     user.lockAmount = Number(user.lockAmount || 0) + amount;
+
+//     await user.save();
+//     if (appliedFrom === "user") {
+//       user.appliedPromo = {
+//         code: null,
+//         discountPercentage: 0,
+//         amount: 0,
+//         appliedAt: null,
+//       };
+
+//       await user.save();
+//     }
+
+//     if (user.sponsorId) {
+//       const parentUser = await UserModel.findById(user.sponsorId);
+//       const percentData = await DirectreferalPercentage.findOne();
+//       const percent = Number(percentData?.directReferralPercentage || 0);
+
+//       if (
+//         parentUser &&
+//         !parentUser.isIncomeBlocked &&
+//         Number.isFinite(percent) &&
+//         percent > 0
+//       ) {
+//         const referralBonus = (amount * percent) / 100;
+
+//         parentUser.directReferalAmount =
+//           Number(parentUser.directReferalAmount || 0) + referralBonus;
+//         parentUser.mainWallet =
+//           Number(parentUser.mainWallet || 0) + referralBonus;
+//         parentUser.totalEarnings =
+//           Number(parentUser.totalEarnings || 0) + referralBonus;
+//         parentUser.currentEarnings =
+//           Number(parentUser.currentEarnings || 0) + referralBonus;
+//         parentUser.aiCredits = Number(parentUser.aiCredits || 0) + 1;
+
+//         await parentUser.save();
+
+//         await ReferalBonus.create({
+//           userId: parentUser._id,
+//           fromUser: user._id,
+//           amount: referralBonus,
+//           date: new Date(),
+//           transferAmount: amount,
+//         });
+//       }
+//     }
+
+//     await LockedAmountModel.create({
+//       userId: user._id,
+//       amount: amount + bonusAmt,
+//       bonusAmount: bonusAmt,
+//       lockedAt: new Date(),
+//       isClaimed: false,
+//       isUnlocked: false,
+//       isBonus: bonusAmt > 0,
+//     });
+
+//     await PromoUsage.create({
+//       userId: user._id,
+//       promocode: code,
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message:
+//         bonusAmt > 0
+//           ? `Swapped $${amount}. Bonus $${bonusAmt} applied and locked for 5 months.`
+//           : `You have successfully swapped $${amount} and received equivalent AI Credit balance.`,
+//       discountApplied: discountAmount,
+//       promoType: appliedFrom,
+//     });
+//   } catch (error) {
+//     console.error("Swap Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const swapAmount = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -1619,11 +1812,21 @@ export const swapAmount = async (req, res) => {
       }
     }
 
+    // =====================================================
+    // 🔐 LOCK PERIOD: Bonus = 5 months, No Bonus = 2 months
+    // =====================================================
+    let lockedDate = new Date();
+    if (bonusAmt > 0) {
+      lockedDate.setMonth(lockedDate.getMonth() + 5);
+    } else {
+      lockedDate.setMonth(lockedDate.getMonth() + 2);
+    }
+
     await LockedAmountModel.create({
       userId: user._id,
       amount: amount + bonusAmt,
       bonusAmount: bonusAmt,
-      lockedAt: new Date(),
+      lockedAt: lockedDate,
       isClaimed: false,
       isUnlocked: false,
       isBonus: bonusAmt > 0,
@@ -3672,5 +3875,337 @@ export const swapTradeToMainWallet = async (req, res) => {
       message: error.message || "Error swapping",
       success: false,
     });
+  }
+};
+
+/**
+ * Per-User Withdrawal Setting Controller
+ *
+ * Global wala sabhi users ke liye ek setting set karta hai.
+ * Ye controller kisi specific user ke liye custom withdrawal setting set karta hai.
+ *
+ * Model assumption:  UserWithdrawalSetting  (username field + same wallet structure)
+ * ─────────────────────────────────────────────────────────────────────────────────
+ *  Payload formats supported:
+ *
+ *  1) Full payload   → { username, tradeWallet:{…}, mainWallet:{…}, levelWallet:{…} }
+ *  2) Single wallet  → { username, walletType:"tradeWallet", updates:{…} }
+ *  3) Root-leaked     → { username, tradeWallet:{…}, enabled, minAmount, … }
+ *     (root rule keys auto-merged into tradeWallet)
+ */
+
+export const upsertUserWithdrawalSetting = async (req, res) => {
+  try {
+    const body0 = req.body;
+    console.log("Received user-level payload:", body0);
+
+    if (!body0 || typeof body0 !== "object") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid payload" });
+    }
+
+    // ─── username is mandatory ───
+    const username = body0.username;
+
+    if (!username) {
+      return res.status(400).json({
+        success: false,
+        message: "username is required",
+      });
+    }
+
+    // clone so we can safely mutate
+    const body = { ...body0 };
+    delete body.username; // don't let it leak into wallet fields
+
+    // ──────────────── helpers (same as global) ────────────────
+    const toNum = (v, def) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : def;
+    };
+
+    const uniqNums = (arr) => Array.from(new Set(arr));
+
+    const isISODate = (s) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").slice(0, 10));
+
+    const sanitizeAllowedDateRanges = (ranges) => {
+      if (!Array.isArray(ranges)) return [];
+
+      const cleaned = ranges
+        .map((r) => {
+          const from = String(r?.from || "").slice(0, 10);
+          const to = String(r?.to || "").slice(0, 10);
+          if (!isISODate(from) || !isISODate(to)) return null;
+
+          const a = from <= to ? from : to;
+          const b = from <= to ? to : from;
+          return { from: a, to: b };
+        })
+        .filter(Boolean);
+
+      cleaned.sort((a, b) => a.from.localeCompare(b.from));
+
+      const merged = [];
+      for (const r of cleaned) {
+        const last = merged[merged.length - 1];
+        if (!last) {
+          merged.push(r);
+          continue;
+        }
+        if (r.from <= last.to) {
+          last.to = last.to >= r.to ? last.to : r.to;
+        } else {
+          merged.push(r);
+        }
+      }
+      return merged;
+    };
+
+    // ─── normalize root-leaked rule fields into tradeWallet ───
+    const RULE_KEYS = [
+      "enabled",
+      "minAmount",
+      "maxAmount",
+      "dailyMaxCount",
+      "dailyMaxAmount",
+      "disabledMessage",
+      "allowedDaysOfMonth",
+      "allowedDayRanges",
+      "allowedDateRanges",
+      "from",
+      "to",
+    ];
+
+    const rootRuleLike = RULE_KEYS.some((k) => body[k] !== undefined);
+
+    if (
+      !body.walletType &&
+      (body.tradeWallet || body.mainWallet || body.levelWallet) &&
+      rootRuleLike
+    ) {
+      body.tradeWallet = { ...(body.tradeWallet || {}) };
+
+      for (const k of RULE_KEYS) {
+        if (body[k] !== undefined) {
+          if ((k === "from" || k === "to") && (body.from || body.to)) continue;
+          body.tradeWallet[k] = body[k];
+          delete body[k];
+        }
+      }
+
+      if (body0.from && body0.to) {
+        body.tradeWallet.allowedDateRanges = body.tradeWallet
+          .allowedDateRanges || [{ from: body0.from, to: body0.to }];
+        delete body.from;
+        delete body.to;
+      }
+    }
+
+    const sanitizeRule = (rule = {}) => {
+      const enabled = typeof rule.enabled === "boolean" ? rule.enabled : true;
+
+      const minAmount = toNum(rule.minAmount, 10);
+      const maxAmount = toNum(rule.maxAmount, 100000);
+
+      const dailyMaxCount = toNum(rule.dailyMaxCount, 1);
+      const dailyMaxAmount = toNum(rule.dailyMaxAmount, 100000);
+
+      const allowedDaysOfMonth = Array.isArray(rule.allowedDaysOfMonth)
+        ? uniqNums(
+            rule.allowedDaysOfMonth
+              .map((x) => Number(x))
+              .filter((x) => Number.isInteger(x) && x >= 1 && x <= 31),
+          )
+        : [];
+
+      const allowedDayRanges = Array.isArray(rule.allowedDayRanges)
+        ? rule.allowedDayRanges
+            .map((r) => {
+              const from = Number(r?.from);
+              const to = Number(r?.to);
+              if (!Number.isInteger(from) || !Number.isInteger(to)) return null;
+              if (from < 1 || from > 31 || to < 1 || to > 31) return null;
+              return { from: Math.min(from, to), to: Math.max(from, to) };
+            })
+            .filter(Boolean)
+        : [];
+
+      let allowedDateRanges = sanitizeAllowedDateRanges(rule.allowedDateRanges);
+
+      if (
+        (!allowedDateRanges || allowedDateRanges.length === 0) &&
+        rule.from &&
+        rule.to
+      ) {
+        allowedDateRanges = sanitizeAllowedDateRanges([
+          { from: rule.from, to: rule.to },
+        ]);
+      }
+
+      const disabledMessage =
+        typeof rule.disabledMessage === "string" && rule.disabledMessage.trim()
+          ? rule.disabledMessage.trim()
+          : "Withdrawals are temporarily unavailable for this wallet.";
+
+      if (minAmount < 0) throw new Error("minAmount must be >= 0");
+      if (maxAmount < minAmount)
+        throw new Error("maxAmount must be >= minAmount");
+      if (dailyMaxCount < 0) throw new Error("dailyMaxCount must be >= 0");
+      if (dailyMaxAmount < 0) throw new Error("dailyMaxAmount must be >= 0");
+
+      return {
+        enabled,
+        minAmount,
+        maxAmount,
+        dailyMaxCount,
+        dailyMaxAmount,
+        disabledMessage,
+        allowedDaysOfMonth,
+        allowedDayRanges,
+        allowedDateRanges,
+      };
+    };
+
+    // ─── find or create doc for this user ───
+    let doc = await UserWithdrawalSetting.findOne({ username });
+    if (!doc) doc = await UserWithdrawalSetting.create({ username });
+
+    // ✅ CASE A: Full payload (all 3 wallets at once)
+    const isFullPayload =
+      body.tradeWallet || body.mainWallet || body.levelWallet;
+
+    if (isFullPayload && !body.walletType) {
+      const payload = {
+        tradeWallet: sanitizeRule(body.tradeWallet || {}),
+        mainWallet: sanitizeRule(body.mainWallet || {}),
+        levelWallet: sanitizeRule(body.levelWallet || {}),
+      };
+
+      const updated = await UserWithdrawalSetting.findOneAndUpdate(
+        { username },
+        { $set: payload },
+        { new: true, upsert: true, runValidators: true },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Withdrawal settings updated for user ${username} (full).`,
+        data: updated,
+      });
+    }
+
+    // ✅ CASE B: Single wallet update
+    const { walletType, updates } = body;
+
+    if (!["tradeWallet", "mainWallet", "levelWallet"].includes(walletType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Send full payload OR { username, walletType, updates }. walletType must be tradeWallet/mainWallet/levelWallet.",
+      });
+    }
+
+    if (!updates || typeof updates !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "updates object is required",
+      });
+    }
+
+    const updatesFixed = { ...updates };
+    if (
+      updatesFixed.from &&
+      updatesFixed.to &&
+      !updatesFixed.allowedDateRanges
+    ) {
+      updatesFixed.allowedDateRanges = [
+        { from: updatesFixed.from, to: updatesFixed.to },
+      ];
+      delete updatesFixed.from;
+      delete updatesFixed.to;
+    }
+
+    const existing = doc[walletType]?.toObject?.() || doc[walletType] || {};
+    const merged = { ...existing, ...updatesFixed };
+    const sanitized = sanitizeRule(merged);
+
+    const updated = await UserWithdrawalSetting.findOneAndUpdate(
+      { username },
+      { $set: { [walletType]: sanitized } },
+      { new: true, upsert: true, runValidators: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `${walletType} updated for user ${username}`,
+      data: updated,
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+/**
+ * GET user-specific withdrawal setting
+ * Falls back to global if user has no custom setting
+ */
+export const getUserWithdrawalSetting = async (req, res) => {
+  try {
+    const username =
+      req.body.username || req.params.username || req.query.username;
+
+    if (!username) {
+      return res
+        .status(400)
+        .json({ success: false, message: "username is required" });
+    }
+
+    // 1) check user-specific
+    const userSetting = await UserWithdrawalSetting.findOne({ username });
+
+    if (userSetting) {
+      return res.status(200).json({
+        success: true,
+        source: "user", // so frontend knows it's custom
+        data: userSetting,
+      });
+    }
+
+    // 2) fallback to global
+    const globalSetting = await WithdrawalSetting.findOne();
+
+    return res.status(200).json({
+      success: true,
+      source: "global",
+      data: globalSetting || null,
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/**
+ * DELETE user-specific setting (user goes back to global rules)
+ */
+export const deleteUserWithdrawalSetting = async (req, res) => {
+  try {
+    const username = req.body.username || req.params.username;
+
+    if (!username) {
+      return res
+        .status(400)
+        .json({ success: false, message: "username is required" });
+    }
+
+    await UserWithdrawalSetting.findOneAndDelete({ username });
+
+    return res.status(200).json({
+      success: true,
+      message: `Custom withdrawal setting removed for user ${username}. Global rules will apply.`,
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 };
