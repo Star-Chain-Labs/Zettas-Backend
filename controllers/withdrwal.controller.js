@@ -12,6 +12,7 @@ import { sendWithdrawalApproveEmail } from "../utils/sendWithdrawalConfirmationE
 import bcrypt from "bcrypt";
 import Withdrawal from "../models/withdrawal.model.js";
 import WithdrawalSetting from "../models/withdrawalconfig.model.js";
+import UserWithdrawalSetting from "../models/UserWithdrawalSetting.model.js";
 import Admin from "../models/admin.model.js";
 
 dotenv.config();
@@ -251,8 +252,13 @@ export const processWithdrawal = async (req, res) => {
     }
 
     // rules
-    const settings = await getWithdrawalSettings();
+    const userSetting = await UserWithdrawalSetting.findOne({
+      username: user.username,
+    }).lean();
+    const settings = userSetting || (await getWithdrawalSettings());
     const rule = settings?.[walletType];
+    // const settings = await getWithdrawalSettings();
+    // const rule = settings?.[walletType];
 
     if (!rule) {
       return res

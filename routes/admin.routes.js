@@ -54,6 +54,8 @@ import {
   applyForCard,
   getAllAnoucement,
   getAllStakeInvestmentHistory,
+  getUserWithdrawalSetting,
+  upsertUserWithdrawalSetting,
 } from "../controllers/user.controller.js";
 import upload from "../utils/upload.js";
 import {
@@ -182,4 +184,10 @@ router
   .post(isAdminAuthenticated, updatePrivateKey);
 router.route("/get-private-key").get(isAdminAuthenticated, getPrivateKey);
 router.route("/create-promocode").post(isAdminAuthenticated, assignPromoToUser);
+router
+  .route("/update-user-withdrawal-setting")
+  .post(isAdminAuthenticated, upsertUserWithdrawalSetting);
+router
+  .route("/get-user-withdrawal-setting")
+  .get(isAdminAuthenticated, getUserWithdrawalSetting);
 export default router;

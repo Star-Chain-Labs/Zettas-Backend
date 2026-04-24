@@ -31,6 +31,7 @@ import Promocode from "../models/promocode.model.js";
 import mongoose from "mongoose";
 import PromoUsage from "../models/PromoUsage.model.js";
 import CardApplication from "../models/CardApplication.model.js";
+import UserWithdrawalSetting from "../models/UserWithdrawalSetting.model.js";
 
 // const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 
@@ -3878,26 +3879,9 @@ export const swapTradeToMainWallet = async (req, res) => {
   }
 };
 
-/**
- * Per-User Withdrawal Setting Controller
- *
- * Global wala sabhi users ke liye ek setting set karta hai.
- * Ye controller kisi specific user ke liye custom withdrawal setting set karta hai.
- *
- * Model assumption:  UserWithdrawalSetting  (username field + same wallet structure)
- * ─────────────────────────────────────────────────────────────────────────────────
- *  Payload formats supported:
- *
- *  1) Full payload   → { username, tradeWallet:{…}, mainWallet:{…}, levelWallet:{…} }
- *  2) Single wallet  → { username, walletType:"tradeWallet", updates:{…} }
- *  3) Root-leaked     → { username, tradeWallet:{…}, enabled, minAmount, … }
- *     (root rule keys auto-merged into tradeWallet)
- */
-
 export const upsertUserWithdrawalSetting = async (req, res) => {
   try {
     const body0 = req.body;
-    console.log("Received user-level payload:", body0);
 
     if (!body0 || typeof body0 !== "object") {
       return res
@@ -3915,11 +3899,9 @@ export const upsertUserWithdrawalSetting = async (req, res) => {
       });
     }
 
-    // clone so we can safely mutate
     const body = { ...body0 };
-    delete body.username; // don't let it leak into wallet fields
+    delete body.username;
 
-    // ──────────────── helpers (same as global) ────────────────
     const toNum = (v, def) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : def;
@@ -4147,48 +4129,29 @@ export const upsertUserWithdrawalSetting = async (req, res) => {
   }
 };
 
-/**
- * GET user-specific withdrawal setting
- * Falls back to global if user has no custom setting
- */
 export const getUserWithdrawalSetting = async (req, res) => {
   try {
-    const username =
-      req.body.username || req.params.username || req.query.username;
-
-    if (!username) {
-      return res
-        .status(400)
-        .json({ success: false, message: "username is required" });
+    const adminId = req.admin._id;
+    if (!adminId) {
+      return res.status(401).json({
+        message: "Admin Access Required",
+        success: false,
+      });
     }
-
-    // 1) check user-specific
-    const userSetting = await UserWithdrawalSetting.findOne({ username });
+    const userSetting = await UserWithdrawalSetting.find({}).lean();
 
     if (userSetting) {
       return res.status(200).json({
         success: true,
-        source: "user", // so frontend knows it's custom
+        source: "user",
         data: userSetting,
       });
     }
-
-    // 2) fallback to global
-    const globalSetting = await WithdrawalSetting.findOne();
-
-    return res.status(200).json({
-      success: true,
-      source: "global",
-      data: globalSetting || null,
-    });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
 };
 
-/**
- * DELETE user-specific setting (user goes back to global rules)
- */
 export const deleteUserWithdrawalSetting = async (req, res) => {
   try {
     const username = req.body.username || req.params.username;
